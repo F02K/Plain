@@ -1,0 +1,4 @@
+action add2(a, b) do
+    return a + b
+end
+say add2(1)

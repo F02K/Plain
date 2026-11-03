@@ -1,0 +1,3 @@
+Error in unknown_var.plain, line 2:
+I don't know a variable called 'helth'.
+Hint: Did you mean 'health'?

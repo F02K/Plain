@@ -1,0 +1,9 @@
+let a be "foo"
+let b be a + "bar"
+say b
+say "n=" + 42
+say "ok? " + true
+say a = "foo"
+say a = "fo" + "o"
+say "tab\there \"quoted\""
+say "ünï — ß"

@@ -1,0 +1,22 @@
+let numbers be list of number
+say size of numbers
+repeat 10 times
+    add 7 to numbers
+end
+add 3 to numbers
+say size of numbers
+say numbers at 10
+set numbers at 0 to 42
+say numbers at 0
+remove 3 from numbers
+say size of numbers
+
+let words be list of text
+add "a" to words
+add "b" to words
+add "c" to words
+remove "b" from words
+for each w in words do
+    say w
+end
+say size of words

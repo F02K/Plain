@@ -1,0 +1,3 @@
+let a be ask "First?"
+let b be ask "Second?"
+say a + "/" + b

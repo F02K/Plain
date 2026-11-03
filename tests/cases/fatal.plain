@@ -1,0 +1,3 @@
+say "before"
+say 5 / 0
+say "after"

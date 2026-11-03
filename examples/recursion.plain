@@ -1,0 +1,13 @@
+note: An action can call itself.
+action factorial(n) do
+    if n <= 1 then
+        return 1
+    end
+    return n * factorial(n - 1)
+end
+
+let n be 1
+while n <= 10 do
+    say "factorial(" + n + ") = " + factorial(n)
+    set n to n + 1
+end

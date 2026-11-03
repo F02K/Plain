@@ -1,0 +1,4 @@
+action f(n) do
+    return f(n - 1)
+end
+say f(1)

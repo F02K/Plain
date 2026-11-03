@@ -1,0 +1,14 @@
+say 1 + 2 * 3
+say (1 + 2) * 3
+say 10 / 4
+say 7 mod 3
+say -5 + 2
+say 0.1 + 0.2
+say 100
+say 2.5 * 2
+say 1 < 2
+say 2 <= 1
+say 3 = 3
+say not (3 = 4)
+say 1 < 2 and 2 < 3
+say 1 > 2 or 2 < 3

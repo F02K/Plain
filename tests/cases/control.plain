@@ -1,0 +1,30 @@
+let health be 15
+if health <= 0 then
+    say "dead"
+else if health < 20 then
+    say "low"
+else
+    say "fine"
+end
+
+repeat 3 times
+    say "tick"
+end
+
+let i be 0
+while i < 10 do
+    set i to i + 1
+    if i = 2 then
+        skip
+    end
+    if i = 5 then
+        stop
+    end
+    say i
+end
+
+repeat 2 times
+    repeat 2 times
+        say "x"
+    end
+end

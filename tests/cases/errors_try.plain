@@ -1,0 +1,39 @@
+let divisor be 0
+try
+    let r be 10 / divisor
+    say "not reached"
+catch error then
+    say "caught: " + error
+end
+
+let items be list of number
+try
+    say items at 3
+catch problem then
+    say problem
+end
+
+action risky(n) do
+    return 10 / n
+end
+
+repeat 3 times
+    try
+        say risky(0)
+    catch e then
+        say "again"
+        skip
+    end
+end
+
+try
+    try
+        say 1 mod 0
+    catch inner then
+        say "inner"
+    end
+    say "after inner"
+catch outer then
+    say "outer"
+end
+say "done"
