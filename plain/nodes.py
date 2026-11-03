@@ -71,7 +71,7 @@ class Call(Node):
 
 
 @dataclass
-class Ask(Node):
+class Input(Node):
     prompt: Node
 
 

@@ -1,8 +1,18 @@
-# Plain
+<h1 align="center">Plain</h1>
 
-**Plain** is a programming language that reads like simple English. It is designed
-for beginners and schools, and it compiles straight to native machine code
-(through x64 assembly) - no virtual machine, no garbage collector, no hidden magic.
+<p align="center">
+  <strong>A programming language that reads like English.</strong><br>
+  Made for beginners and schools. Compiles to native machine code.
+</p>
+
+<p align="center">
+  <a href="https://github.com/F02K/Plain/actions/workflows/ci.yml"><img alt="tests" src="https://github.com/F02K/Plain/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="status" src="https://img.shields.io/badge/status-MVP-orange">
+  <img alt="targets" src="https://img.shields.io/badge/targets-Linux%20x64%20%7C%20Windows%20x64-blue">
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/F02K/Plain"></a>
+</p>
+
+---
 
 ```
 define Player as
@@ -14,46 +24,111 @@ action heal(player, amount) do
     set health of player to health of player + amount
 end
 
+let name be input "What is your name?"
 let hero be Player(health: 80, score: 0)
+
 heal(hero, 20)
-say "Health: " + health of hero
+say name + " has " + health of hero + " health."
 ```
 
-## Principles
+## Why Plain?
 
-- **Nothing is hidden.** No implicit conversions, no hidden allocations.
-- **One way per concept.** One clear syntax for each task.
-- **English keywords** (`if`, `then`, `while`, `do`, `end`) and normal math symbols.
-- **`let` creates, `set` changes.** `=` only ever means *compare*, so the classic `=` / `==` mix-up cannot happen.
-- **Friendly error messages** that point at the problem and suggest a fix.
+| | |
+| --- | --- |
+| **Readable** | Keywords are English words: `if`, `then`, `while`, `do`, `end`. |
+| **Nothing hidden** | No implicit conversions, no hidden allocations, no virtual machine, no garbage collector. |
+| **Hard to get wrong** | `let` creates a variable, `set` changes it, and `=` only ever *compares* - the classic `=` / `==` mistake cannot happen. |
+| **Friendly errors** | Messages show the line, point at the problem and suggest a fix. |
+| **Real and fast** | Plain compiles to x64 assembly, then to a normal executable. Students can read the generated assembly. |
 
-## Quick start
+## Install
 
-Requirements: Python 3.10+, [NASM](https://www.nasm.us/) and `gcc` (Linux), or
-NASM and MinGW-w64 `gcc` (Windows).
+You need **Python 3.10+**, **NASM** and a C compiler for linking.
+
+<details open>
+<summary>Linux (Debian / Ubuntu)</summary>
 
 ```
-python3 -m plain run examples/hello.plain
-python3 -m plain build examples/game.plain -o game
-python3 -m plain asm examples/game.plain        # write the generated assembly
+sudo apt install nasm gcc python3
+git clone https://github.com/F02K/Plain.git && cd Plain
+```
+</details>
+
+<details>
+<summary>Windows</summary>
+
+Install Python, [NASM](https://www.nasm.us/) and [MinGW-w64](https://www.mingw-w64.org/) (gcc), put them on your `PATH`, then clone the repository.
+The Windows target is generated and assembles correctly, but has had less testing than Linux.
+</details>
+
+Optional: `pip install .` adds a `plain` command. Otherwise use `python3 -m plain`.
+
+## Usage
+
+```
+plain run examples/hello.plain                  # compile and run
+plain build examples/game.plain -o game         # produce an executable
+plain build game.plain --target windows         # cross-target (needs MinGW)
+plain asm examples/game.plain                   # only write the assembly (.asm)
 ```
 
-Targets: `--target linux` (default on Linux) and `--target windows`.
+## A quick tour
+
+```
+note: Variables
+let health be 100
+set health to health - 5
+
+note: Decisions and loops
+if health < 20 then
+    say "careful!"
+end
+
+repeat 3 times
+    say "tick"
+end
+
+note: Lists
+let scores be list of number
+add 10 to scores
+add 20 to scores
+for each score in scores do
+    say score
+end
+
+note: Errors can be caught
+try
+    say 10 / 0
+catch error then
+    say "Problem: " + error
+end
+```
+
+More: [`examples/`](examples/) and the full [language reference](docs/language.md).
 
 ## Documentation
 
-- [Language reference](docs/language.md)
-- [How the compiler works](docs/compiler.md)
-- [Examples](examples/)
+| Document | Content |
+| --- | --- |
+| [Getting started](docs/getting-started.md) | Your first programs, step by step |
+| [Language reference](docs/language.md) | Every statement, type and operator |
+| [Error messages](docs/errors.md) | The errors you will meet and how to fix them |
+| [Compiler internals](docs/compiler.md) | Architecture, value model, roadmap |
+| [Contributing](CONTRIBUTING.md) | Development setup and tests |
 
-## Status
+## Project status
 
-This is the MVP. See the roadmap in [docs/compiler.md](docs/compiler.md).
+Plain is an **MVP**. The core language works and is tested on Linux x64.
+Windows x64 output is generated; running it on a real Windows machine is still to be verified.
+Graphics, a standard library and more text/number functions are on the [roadmap](docs/compiler.md#roadmap).
 
-## Tests
+## Repository layout
 
 ```
-python3 tests/run_tests.py
+plain/       the compiler (lexer, parser, code generator, runtime, CLI)
+examples/    example programs
+tests/       test runner, run-cases and error-cases
+docs/        documentation
 ```
 
 ## License

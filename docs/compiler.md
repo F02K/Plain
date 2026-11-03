@@ -39,7 +39,7 @@ source -> lexer -> parser -> code generator -> NASM assembly -> nasm -> gcc (lin
 1. Run the test-suite on Windows in CI.
 2. Window/graphics support (SDL2 or raylib through `extern` declarations).
 3. Standard library: `Math`, `String`, `Window`, `Input`, `Draw`.
-4. Number input (`ask` returning numbers), more text operations.
+4. Number input (`input` returning numbers), more text operations.
 5. Sample project: a Pong-level 2D game.
 6. Optimizations (keep values in registers, constant folding).
 7. Open design questions: explicit program entry point, multiple return values, inheritance.

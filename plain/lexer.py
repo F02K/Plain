@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from .errors import PlainError
 
 KEYWORDS = {
-    "let", "be", "set", "to", "say", "ask",
+    "let", "be", "set", "to", "say", "input",
     "if", "then", "else", "end",
     "repeat", "times", "while", "do", "for", "each", "in",
     "stop", "skip", "action", "return",

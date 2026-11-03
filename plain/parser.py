@@ -363,9 +363,9 @@ class Parser:
         if tok.is_sym("-"):
             self.advance()
             return N.Unary("-", self.parse_unary(), line=tok.line, col=tok.col)
-        if tok.is_kw("ask"):
+        if tok.is_kw("input"):
             self.advance()
-            return N.Ask(self.parse_additive(), line=tok.line, col=tok.col)
+            return N.Input(self.parse_additive(), line=tok.line, col=tok.col)
         return self.parse_access()
 
     def parse_access(self):
@@ -401,6 +401,8 @@ class Parser:
             return N.Nothing(line=tok.line, col=tok.col)
         if tok.kind == "NAME":
             self.advance()
+            if tok.value == "ask" and self.cur.kind == "TEXT":
+                self.error(tok, "'ask' is now called 'input'.", 'Write: let name be input "Your name?"')
             if self.cur.is_sym("("):
                 return self.parse_call(tok)
             return N.Var(tok.value, line=tok.line, col=tok.col)
