@@ -11,11 +11,26 @@ source -> lexer -> parser -> code generator -> NASM assembly -> nasm -> gcc (lin
 | `plain/typesys.py` | the types |
 | `plain/codegen.py` | type checking and assembly generation |
 | `plain/runtime_asm.py` | the small assembly runtime (text, lists, errors) |
+| `plain/pygen.py`, `plain/pyruntime.py` | the Python backend and its helper code |
 | `plain/toolchain.py` | runs `nasm` and the linker |
 | `plain/cli.py` | the `plain` command |
 | `plain/errors.py` | friendly error messages |
 
-## Design
+## Backends
+
+```
+                              +--> codegen.py -> NASM -> executable   (native)
+source -> lexer -> parser ----+
+                              +--> pygen.py   -> standalone .py       (python)
+```
+
+The Python backend runs the native code generator first, only to type check, so
+both backends accept and reject the same programs and show the same error messages.
+Python uses its own dynamic types at run time; numbers are always floats, and
+the helpers in `pyruntime.py` reproduce the native number formatting and error
+messages. The test-suite runs every program on both backends.
+
+## Design (native backend)
 
 - Every value is one 64-bit slot: numbers are doubles, booleans 0/1, text a pointer to a
   zero-terminated string, a thing a pointer to its fields, a list a pointer to `[size, capacity, data]`.

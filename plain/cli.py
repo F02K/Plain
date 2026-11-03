@@ -1,4 +1,4 @@
-"""Command line interface: plain build|run|asm <file.plain>"""
+"""Command line interface: plain run|build|asm|python <file.plain>"""
 
 import argparse
 import os
@@ -7,7 +7,7 @@ import sys
 import tempfile
 
 from .errors import PlainError, format_error
-from .toolchain import ToolError, build_executable, compile_source, host_target
+from .toolchain import ToolError, build_executable, compile_source, compile_to_python, host_target
 
 VERSION = "0.1.0"
 
@@ -19,6 +19,8 @@ def main(argv=None):
 
     run = sub.add_parser("run", help="compile a program and run it")
     run.add_argument("file")
+    run.add_argument("--backend", choices=["native", "python"], default="native",
+                     help="native: assembly (default); python: translate to Python and run it")
 
     build = sub.add_parser("build", help="compile a program to an executable")
     build.add_argument("file")
@@ -30,6 +32,10 @@ def main(argv=None):
     asm.add_argument("-o", "--output", help="name of the .asm file")
     asm.add_argument("--target", choices=["linux", "windows"], default=host_target())
 
+    py = sub.add_parser("python", help="translate a program to a Python file")
+    py.add_argument("file")
+    py.add_argument("-o", "--output", help="name of the .py file")
+
     args = parser.parse_args(argv)
 
     try:
@@ -40,14 +46,29 @@ def main(argv=None):
         return 2
 
     target = getattr(args, "target", host_target())
+    base = os.path.splitext(args.file)[0]
     try:
-        asm_text = compile_source(source, target)
+        if args.command == "python" or (args.command == "run" and args.backend == "python"):
+            py_text = compile_to_python(source)
+        else:
+            asm_text = compile_source(source, target)
     except PlainError as err:
         print(format_error(err, source, os.path.basename(args.file)), file=sys.stderr)
         return 1
 
-    base = os.path.splitext(args.file)[0]
     try:
+        if args.command == "python":
+            out = args.output or base + ".py"
+            with open(out, "w", encoding="utf-8") as f:
+                f.write(py_text)
+            print(f"Wrote {out}")
+            return 0
+        if args.command == "run" and args.backend == "python":
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "program.py")
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(py_text)
+                return subprocess.run([sys.executable, path]).returncode
         if args.command == "asm":
             out = args.output or base + ".asm"
             with open(out, "w", encoding="utf-8") as f:

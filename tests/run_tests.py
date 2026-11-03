@@ -1,6 +1,7 @@
 """Test runner.
 
 Run programs:   tests/cases/NAME.plain  ->  compare the output with NAME.out
+                (on both backends: native assembly and Python)
                 (optional NAME.in is sent to the program as keyboard input)
 Compile errors: tests/errors/NAME.plain ->  the error message must contain
                 every line of NAME.err
@@ -18,7 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from plain.errors import PlainError, format_error  # noqa: E402
-from plain.toolchain import build_executable, compile_source, host_target  # noqa: E402
+from plain.toolchain import build_executable, compile_source, compile_to_python, host_target  # noqa: E402
 
 
 def read(path):
@@ -38,7 +39,15 @@ def run_case(path, tmp):
     stdin = read(stdin_path) if os.path.exists(stdin_path) else ""
     result = subprocess.run([exe], input=stdin, capture_output=True, text=True, timeout=20)
     expected = read(path[:-6] + ".out")
-    return result.stdout == expected, f"expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
+    if result.stdout != expected:
+        return False, f"[native] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
+    py_path = os.path.join(tmp, name + ".py")
+    with open(py_path, "w", encoding="utf-8") as f:
+        f.write(compile_to_python(source))
+    result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True, timeout=20)
+    if result.stdout != expected:
+        return False, f"[python] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
+    return True, ""
 
 
 def error_case(path):

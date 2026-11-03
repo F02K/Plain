@@ -7,6 +7,7 @@ import sys
 import tempfile
 
 from .codegen import compile_program
+from .pygen import generate_python
 from .errors import PlainError
 from .lexer import tokenize
 from .parser import parse
@@ -19,6 +20,17 @@ def host_target():
 def compile_source(source, target):
     """Plain source text -> NASM assembly text."""
     return compile_program(parse(tokenize(source)), target)
+
+
+def compile_to_python(source):
+    """Plain source text -> Python source text.
+
+    The program is type checked first by the normal compiler, so both backends
+    accept and reject exactly the same programs.
+    """
+    program = parse(tokenize(source))
+    compile_program(program, "linux")
+    return generate_python(program)
 
 
 class ToolError(Exception):
