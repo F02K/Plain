@@ -1,0 +1,67 @@
+note: A tiny game simulation: a hero walks right and fights enemies.
+
+define Player as
+    x as number
+    y as number
+    health as number
+    score as number
+end
+
+define Enemy as
+    x as number
+    y as number
+    damage as number
+    alive as boolean
+end
+
+action moveRight(player) do
+    set x of player to x of player + 1
+end
+
+action isTouching(a, b) do
+    return x of a = x of b and y of a = y of b
+end
+
+action attack(player, enemy) do
+    if alive of enemy then
+        set health of player to health of player - damage of enemy
+        set alive of enemy to false
+        set score of player to score of player + 10
+        say "Enemy defeated! Score: " + score of player
+    end
+end
+
+action healPlayer(player, amount) do
+    set health of player to health of player + amount
+    if health of player > 100 then
+        set health of player to 100
+    end
+end
+
+let hero be Player(x: 0, y: 0, health: 100, score: 0)
+let enemies be list of Enemy
+
+add Enemy(x: 3, y: 0, damage: 15, alive: true) to enemies
+add Enemy(x: 6, y: 0, damage: 20, alive: true) to enemies
+add Enemy(x: 9, y: 0, damage: 10, alive: true) to enemies
+
+while health of hero > 0 do
+    moveRight(hero)
+
+    for each enemy in enemies do
+        if isTouching(hero, enemy) then
+            attack(hero, enemy)
+        end
+    end
+
+    if x of hero > 10 then
+        say "Level complete! Final score: " + score of hero
+        healPlayer(hero, 30)
+        stop
+    end
+end
+
+say "Health left: " + health of hero
+if health of hero = 0 or health of hero < 0 then
+    say "Game Over"
+end

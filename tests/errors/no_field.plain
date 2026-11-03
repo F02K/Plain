@@ -1,0 +1,5 @@
+define P as
+    x as number
+end
+let p be P(x: 1)
+say y of p

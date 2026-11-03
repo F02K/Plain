@@ -1,0 +1,22 @@
+define Point as
+    x as number
+    y as number
+end
+
+define Line as
+    start as Point
+    finish as Point
+    label as text
+end
+
+let p be Point(y: 2, x: 1)
+say x of p
+say y of p
+set x of p to x of p + 10
+say x of p
+
+let l be Line(start: p, finish: Point(x: 5, y: 6), label: "diag")
+say x of finish of l
+set y of start of l to 99
+say y of p
+say label of l

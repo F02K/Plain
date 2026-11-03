@@ -1,0 +1,12 @@
+[project]
+name = "plain-lang"
+version = "0.1.0"
+description = "Plain: a beginner friendly programming language that compiles to native code."
+requires-python = ">=3.10"
+readme = "README.md"
+
+[project.scripts]
+plain = "plain.cli:main"
+
+[tool.setuptools]
+packages = ["plain"]

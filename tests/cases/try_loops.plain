@@ -1,0 +1,33 @@
+note: stop, skip and return must leave try blocks cleanly
+action find(items) do
+    for each n in items do
+        try
+            if n = 2 then
+                return n
+            end
+        catch e then
+            say "never"
+        end
+    end
+    return 0
+end
+
+let items be list of number
+add 1 to items
+add 2 to items
+add 3 to items
+repeat 3 times
+    say find(items)
+end
+
+for each n in items do
+    try
+        if n = 1 then
+            skip
+        end
+        stop
+    catch e then
+        say "never"
+    end
+end
+say 1 / 0

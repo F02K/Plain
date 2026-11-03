@@ -1,0 +1,28 @@
+action fact(n) do
+    if n <= 1 then
+        return 1
+    end
+    return n * fact(n - 1)
+end
+
+action double(x) do
+    return x + x
+end
+
+action greet(name) do
+    say "Hello " + name
+end
+
+action fib(n) do
+    if n < 2 then
+        return n
+    end
+    return fib(n - 1) + fib(n - 2)
+end
+
+say fact(10)
+say double(21)
+say double("ab")
+greet("Max")
+say fib(20)
+say double(fact(3)) + 1
