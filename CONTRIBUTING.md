@@ -11,7 +11,7 @@ No other dependencies - the compiler uses only the Python standard library.
 
 ## Tests
 
-- `tests/cases/NAME.plain` + `NAME.out` (+ optional `NAME.in` as keyboard input): the program is compiled, run, and its output compared.
+- `tests/cases/NAME.plain` + `NAME.out` (+ optional `NAME.in` as keyboard input): the program is compiled, run on both backends (native and Python), and its output compared.
 - `tests/errors/NAME.plain` + `NAME.err`: compilation must fail; every line of `NAME.err` must appear in the error message.
 
 Add a test with every new feature or fix. CI runs the same suite.

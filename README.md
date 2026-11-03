@@ -39,11 +39,11 @@ say name + " has " + health of hero + " health."
 | **Nothing hidden** | No implicit conversions, no hidden allocations, no virtual machine, no garbage collector. |
 | **Hard to get wrong** | `let` creates a variable, `set` changes it, and `=` only ever *compares* - the classic `=` / `==` mistake cannot happen. |
 | **Friendly errors** | Messages show the line, point at the problem and suggest a fix. |
-| **Real and fast** | Plain compiles to x64 assembly, then to a normal executable. Students can read the generated assembly. |
+| **Real and fast** | Plain compiles to x64 assembly, then to a normal executable. It can also be translated to Python. Students can read the generated code. |
 
 ## Install
 
-You need **Python 3.10+**, **NASM** and a C compiler for linking.
+You need **Python 3.10+**. For native executables you also need **NASM** and a C compiler for linking (not needed for the Python backend).
 
 <details open>
 <summary>Linux (Debian / Ubuntu)</summary>
@@ -70,7 +70,19 @@ plain run examples/hello.plain                  # compile and run
 plain build examples/game.plain -o game         # produce an executable
 plain build game.plain --target windows         # cross-target (needs MinGW)
 plain asm examples/game.plain                   # only write the assembly (.asm)
+plain python examples/game.plain -o game.py     # translate to a standalone Python file
+plain run examples/game.plain --backend python  # translate to Python and run it
 ```
+
+Plain has two backends. Both use the same type checker and give the same results.
+
+| Backend | Output | Needs |
+| --- | --- | --- |
+| native (default) | x64 assembly -> executable | NASM + gcc |
+| python | a standalone `.py` file | Python only |
+
+The Python backend is handy where NASM is not available (for example on a school
+computer) and for reading the translation of a program.
 
 ## A quick tour
 
