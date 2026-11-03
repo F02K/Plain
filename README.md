@@ -9,7 +9,7 @@
   <a href="https://github.com/F02K/Plain/actions/workflows/ci.yml"><img alt="tests" src="https://github.com/F02K/Plain/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="status" src="https://img.shields.io/badge/status-MVP-orange">
   <img alt="targets" src="https://img.shields.io/badge/targets-Linux%20x64%20%7C%20Windows%20x64-blue">
-  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/F02K/Plain"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-green"></a>
 </p>
 
 ---
@@ -145,4 +145,13 @@ docs/        documentation
 
 ## License
 
-See [LICENSE](LICENSE).
+Plain is **free to use, study, modify and share**, but it may **not be sold**.
+The license is [Apache 2.0 with the Commons Clause](LICENSE).
+
+**Programs you create with Plain are yours** and may be sold or licensed however
+you like: see the [Output Exception](LICENSE-EXCEPTION.md).
+
+Note: because selling is restricted, Plain is *source-available* rather than
+"open source" in the strict sense of the Open Source Initiative.
+
+Copyright (c) 2026 F02K

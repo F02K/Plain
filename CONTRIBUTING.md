@@ -24,3 +24,9 @@ See [docs/compiler.md](docs/compiler.md). Code, comments, messages and docs are 
 
 - Keep the language small: one clear way per concept.
 - Error messages are part of the product: say what is wrong, where, and how to fix it.
+
+## License of contributions
+
+By submitting a contribution you agree that it is licensed under the same terms as the
+project: Apache 2.0 with the Commons Clause and the Output Exception (see [LICENSE](LICENSE)
+and [LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md)).
