@@ -537,12 +537,12 @@ class Compiler:
         self.emit("xor eax, 1")
         return T.BOOLEAN
 
-    def x_Ask(self, e):
+    def x_Input(self, e):
         t = self.expr(e.prompt)
         if t != T.TEXT:
-            self.error(e.prompt, f"'ask' needs a text, but this is {self.describe(t)}.")
+            self.error(e.prompt, f"'input' needs a text, but this is {self.describe(t)}.")
         self.emit("mov A1, rax")
-        self.call_rt("rt_ask")
+        self.call_rt("rt_input")
         return T.TEXT
 
     def x_Field(self, e):

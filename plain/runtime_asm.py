@@ -185,13 +185,13 @@ rt_text_eq:
     leave
     ret
 
-; rt_ask(prompt) -> text read from the keyboard (one line)
-rt_ask:
+; rt_input(prompt) -> text read from the keyboard (one line)
+rt_input:
     push rbp
     mov rbp, rsp
     sub rsp, 96
     mov A2, A1
-    lea A1, [rel rt_fmt_ask]
+    lea A1, [rel rt_fmt_input]
     xor eax, eax
     call printf
     xor A1, A1
@@ -359,7 +359,7 @@ rt_list_remove:
 
 DATA = r"""
 rt_fmt_num:      db "%.15g", 0
-rt_fmt_ask:      db "%s ", 0
+rt_fmt_input:      db "%s ", 0
 rt_fmt_err_line: db "Error in line %d: ", 0
 rt_fmt_err:      db "Error: ", 0
 rt_str_true:     db "true", 0

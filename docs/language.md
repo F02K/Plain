@@ -1,5 +1,9 @@
 # Plain language reference
 
+A complete description of Plain. New to the language? Start with [Getting started](getting-started.md).
+
+**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Errors - Reserved words
+
 ## Types
 
 | Type | Meaning | Example |
@@ -122,9 +126,12 @@ set enemies at 0 to other
 ## Output and input
 
 ```
-say "Hello"                    note: prints with a new line
-let name be ask "Your name?"   note: reads one line of text
+say "Hello"                      note: prints with a new line
+let name be input "Your name?"   note: asks, then reads one line of text
 ```
+
+`say` accepts text, numbers and booleans. `input` prints the question, waits for
+the user to type a line, and gives it back as `text` (without the line break).
 
 ## Errors
 
@@ -141,12 +148,12 @@ Without `try`, a runtime error stops the program with the line number and a reas
 
 ## Reserved words
 
-`let be set to say ask if then else end repeat times while do for each in stop skip
+`let be set to say input if then else end repeat times while do for each in stop skip
 action return define as list of at add remove from try catch and or not mod true
 false nothing` (`note:` starts a comment).
 
 ## Differences from the first draft of the specification
 
 Small additions needed to make real programs possible: `not`, `mod`,
-`set list at i to ...`, the error message in `catch name then`, and `\n`-style
+`set list at i to ...`, `input` (instead of `ask`), the error message in `catch name then`, and `\n`-style
 escapes in text.

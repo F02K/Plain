@@ -1,5 +1,5 @@
 note: My first Plain program
 say "Hello, world!"
 
-let name be ask "What is your name?"
+let name be input "What is your name?"
 say "Nice to meet you, " + name
