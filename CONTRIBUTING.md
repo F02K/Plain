@@ -7,6 +7,8 @@ sudo apt install nasm gcc python3
 python3 tests/run_tests.py
 ```
 
+On Windows install Python, NASM and MinGW-w64 (see the [README](README.md#install)) and run `python tests/run_tests.py`.
+
 No other dependencies - the compiler uses only the Python standard library.
 
 ## Tests

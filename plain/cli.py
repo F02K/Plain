@@ -78,6 +78,8 @@ def main(argv=None):
         if args.command == "build":
             ext = ".exe" if target == "windows" else ""
             out = args.output or base + ext
+            if target == "windows" and not out.lower().endswith(".exe"):
+                out += ".exe"
             build_executable(asm_text, out, target)
             print(f"Built {out}")
             return 0

@@ -57,7 +57,19 @@ git clone https://github.com/F02K/Plain.git && cd Plain
 <details>
 <summary>Windows</summary>
 
-Install Python, [NASM](https://www.nasm.us/) and [MinGW-w64](https://www.mingw-w64.org/) (gcc), put them on your `PATH`, then clone the repository.
+Install Python, [NASM](https://www.nasm.us/) and [MinGW-w64](https://www.mingw-w64.org/) (gcc), then clone the repository.
+With `winget` (PowerShell):
+
+```
+winget install Python.Python.3.12
+winget install NASM.NASM
+winget install BrechtSanders.WinLibs.POSIX.UCRT
+git clone https://github.com/F02K/Plain.git; cd Plain
+```
+
+Open a new terminal afterwards so `PATH` is updated, and check with `nasm -v` and `gcc --version`.
+On Windows use `python` (or `py`) instead of `python3`, and `python tests/run_tests.py` for the tests.
+Executables get the `.exe` ending automatically.
 The test-suite runs on Windows in CI (native executables built with NASM and MinGW-w64).
 </details>
 
