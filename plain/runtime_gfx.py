@@ -517,8 +517,11 @@ rt_gfx_show:
     mov rdx, [rbp - 8]
     call ReleaseDC
 .wait:
+    cmp qword [rel rt_gfx_headless], 0
+    jne .nowait
     mov ecx, 15
     call Sleep
+.nowait:
     leave
     ret
 

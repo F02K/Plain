@@ -321,7 +321,8 @@ def _show(line):
             g.root.update()
         except g.tk.TclError:
             g.open = False
-        _time.sleep(0.015)
+        if not g.headless:
+            _time.sleep(0.015)
 
 
 def _running(line):

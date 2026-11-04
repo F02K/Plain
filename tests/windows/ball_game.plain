@@ -11,7 +11,7 @@ let score be 0
 let lives be 3
 
 let frames be 0
-while running() and frames < 600 do
+while running() and frames < 200 do
     note: read the keys
     if pressed("left") then
         set paddle to max(0, paddle - 6)
