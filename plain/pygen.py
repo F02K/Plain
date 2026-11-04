@@ -6,7 +6,7 @@ program that is rejected for the native target is rejected here too.
 
 from . import library as L
 from . import nodes as N
-from .pyruntime import PRELUDE
+from .pyruntime import GFX_PRELUDE, PRELUDE
 
 
 def var(name):
@@ -17,6 +17,7 @@ class PyGen:
     def __init__(self, program):
         self.program = program
         self.out = []
+        self.uses_gfx = False
 
     def line(self, indent, text):
         self.out.append("    " * indent + text)
@@ -38,6 +39,8 @@ class PyGen:
         self.line(0, "")
         self.line(0, 'if __name__ == "__main__":')
         self.line(1, "_run(_main)")
+        if self.uses_gfx:
+            self.out.insert(1, GFX_PRELUDE)
         return "\n".join(self.out) + "\n"
 
     # ---- definitions ---------------------------------------------------------
@@ -189,7 +192,9 @@ class PyGen:
 
     def x_Call(self, e):
         if e.name in L.CALLS:
-            return f"_{e.name}(" + ", ".join(self.expr(a) for a in e.args) + f", {e.line})"
+            if e.name in L.GFX:
+                self.uses_gfx = True
+            return f"_{e.name}(" + ", ".join([self.expr(a) for a in e.args] + [str(e.line)]) + ")"
         if e.named is not None:
             args = ", ".join(f"f_{n}={self.expr(v)}" for n, v in e.named)
             return f"T_{e.name}({args})"

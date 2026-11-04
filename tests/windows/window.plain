@@ -1,0 +1,39 @@
+note: Windows are hidden in the tests (PLAIN_HEADLESS), so this only checks the logic.
+window("Test", 320, 200)
+color(255, 0, 0)
+clear()
+color(0, 0, 255)
+rectangle(10, 10, 100, 50)
+circle(200, 100, 30)
+line(0, 0, 320, 200)
+write("Hello ä", 10, 120)
+color(300, -5, 0.5)
+let frames be 0
+while running() and frames < 5 do
+    show()
+    set frames to frames + 1
+end
+say frames
+say running()
+say pressed("a")
+say pressed("left")
+say pressed("space")
+say mouse_x() >= -1000
+say mouse_y() < 100000
+say mouse_down()
+try
+    say pressed("banana")
+catch error then
+    say error
+end
+try
+    window("Second", 100, 100)
+catch error then
+    say error
+end
+close_window()
+say running()
+note: drawing after the window is closed is allowed and does nothing visible
+rectangle(0, 0, 10, 10)
+show()
+say "done"

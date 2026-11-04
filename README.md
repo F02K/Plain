@@ -43,7 +43,7 @@ say name + " has " + health of hero + " health."
 
 ## Install
 
-You need **Python 3.10+**. For native executables you also need **NASM** and a C compiler for linking (not needed for the Python backend).
+You need **Python 3.10+**. For the assembly backend you also need **NASM** and a C compiler for linking (not needed for the Python backend).
 
 <details open>
 <summary>Linux (Debian / Ubuntu)</summary>
@@ -73,7 +73,7 @@ Executables get the `.exe` ending automatically.
 The test-suite runs on Windows in CI (native executables built with NASM and MinGW-w64).
 </details>
 
-Optional: `pip install .` adds a `plain` command. Otherwise use `python3 -m plain`.
+Optional: `pip install .` adds a `plain` command. For a simple editor with a Run button (handy in classrooms) see [`ide/`](ide/README.md). Otherwise use `python3 -m plain`.
 
 ## Usage
 
@@ -90,7 +90,7 @@ Plain has two backends. Both use the same type checker and give the same results
 
 | Backend | Output | Needs |
 | --- | --- | --- |
-| native (default) | x64 assembly -> executable | NASM + gcc |
+| assembly (default) | x64 assembly -> executable | NASM + gcc |
 | python | a standalone `.py` file | Python only |
 
 The Python backend is handy where NASM is not available (for example on a school
@@ -143,7 +143,7 @@ More: [`examples/`](examples/) and the full [language reference](docs/language.m
 ## Project status
 
 Plain is an **MVP**. The core language works and is tested in CI on Linux x64 and Windows x64.
-Graphics, a standard library and more text/number functions are on the [roadmap](docs/compiler.md#roadmap).
+Windows and drawing work (see [`examples/ball.plain`](examples/ball.plain)); sprites, sound and Linux windows in the assembly backend are on the [roadmap](docs/compiler.md#roadmap).
 
 ## Repository layout
 

@@ -112,6 +112,8 @@ rt_say:
     mov rbp, rsp
     sub rsp, 32
     call puts
+    xor A1, A1
+    call fflush
     leave
     ret
 
@@ -742,8 +744,11 @@ BSS = r"""
 rt_hcount:     resq 1
 rt_last_error: resq 1
 rt_rng:        resq 1
+rt_line:       resq 1
 rt_handlers:   resq 3 * 1024
 """
 
 EXTERNS_COMMON = ["calloc", "realloc", "printf", "puts", "snprintf", "strlen", "memcpy",
                   "strcmp", "getchar", "fflush", "exit", "fmod", "strtod", "strstr", "qsort"]
+
+from .runtime_gfx import GFX_BSS, GFX_DATA, GFX_EXTERNS, GFX_RUNTIME  # noqa: E402,F401

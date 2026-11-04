@@ -1,0 +1,57 @@
+note: A small ball game. Move the paddle with the left and right arrow keys.
+note: Close the window to stop.
+window("Plain Ball", 480, 320)
+
+let ball_x be 240
+let ball_y be 100
+let speed_x be 3
+let speed_y be 3
+let paddle be 200
+let score be 0
+let lives be 3
+
+while running() do
+    note: read the keys
+    if pressed("left") then
+        set paddle to max(0, paddle - 6)
+    end
+    if pressed("right") then
+        set paddle to min(400, paddle + 6)
+    end
+
+    note: move the ball and bounce it
+    set ball_x to ball_x + speed_x
+    set ball_y to ball_y + speed_y
+    if ball_x < 8 or ball_x > 472 then
+        set speed_x to 0 - speed_x
+    end
+    if ball_y < 8 then
+        set speed_y to 0 - speed_y
+    end
+    if ball_y > 292 and ball_y < 310 and ball_x > paddle and ball_x < paddle + 80 then
+        set speed_y to 0 - abs of speed_y
+        set score to score + 1
+    end
+
+    note: the ball fell down
+    if ball_y > 330 then
+        set lives to lives - 1
+        set ball_x to 240
+        set ball_y to 100
+        if lives = 0 then
+            set lives to 3
+            set score to 0
+        end
+    end
+
+    note: draw everything
+    color(20, 24, 40)
+    clear()
+    color(240, 240, 240)
+    rectangle(paddle, 300, 80, 10)
+    color(255, 170, 0)
+    circle(ball_x, ball_y, 8)
+    color(255, 255, 255)
+    write("Score: " + score + "   Lives: " + lives, 10, 8)
+    show()
+end

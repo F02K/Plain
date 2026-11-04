@@ -1,8 +1,10 @@
 """Test runner.
 
 Run programs:   tests/cases/NAME.plain  ->  compare the output with NAME.out
-                (on both backends: native assembly and Python)
+                (on both backends: assembly and Python)
                 (optional NAME.in is sent to the program as keyboard input)
+Windows:        tests/windows/NAME.plain -> like tests/cases, but with hidden windows
+                (PLAIN_HEADLESS=1). Only on Windows: the assembly backend opens windows with Win32 there.
 Compile errors: tests/errors/NAME.plain ->  the error message must contain
                 every line of NAME.err
 
@@ -27,7 +29,7 @@ def read(path):
         return f.read()
 
 
-def run_case(path, tmp):
+def run_case(path, tmp, env=None):
     name = os.path.splitext(os.path.basename(path))[0]
     source = read(path)
     exe = os.path.join(tmp, name + (".exe" if sys.platform.startswith("win") else ""))
@@ -37,14 +39,15 @@ def run_case(path, tmp):
         return False, format_error(err, source, os.path.basename(path))
     stdin_path = path[:-6] + ".in"
     stdin = read(stdin_path) if os.path.exists(stdin_path) else ""
-    result = subprocess.run([exe], input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=20)
+    result = subprocess.run([exe], input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=20, env=env)
     expected = read(path[:-6] + ".out")
     if result.stdout != expected:
-        return False, f"[native] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
+        return False, f"[assembly] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
     py_path = os.path.join(tmp, name + ".py")
     with open(py_path, "w", encoding="utf-8") as f:
         f.write(compile_to_python(source))
-    result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=20)
+    result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True, encoding="utf-8",
+                            timeout=20, env=env)
     if result.stdout != expected:
         return False, f"[python] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
     return True, ""
@@ -72,6 +75,16 @@ def main():
             if not ok:
                 failures += 1
                 print(detail)
+    if sys.platform.startswith("win"):
+        hidden = dict(os.environ, PLAIN_HEADLESS="1")
+        with tempfile.TemporaryDirectory() as tmp:
+            for path in sorted(glob.glob(os.path.join(ROOT, "tests", "windows", "*.plain"))):
+                total += 1
+                ok, detail = run_case(path, tmp, hidden)
+                print(("PASS " if ok else "FAIL ") + os.path.relpath(path, ROOT))
+                if not ok:
+                    failures += 1
+                    print(detail)
     for path in sorted(glob.glob(os.path.join(ROOT, "tests", "errors", "*.plain"))):
         total += 1
         ok, detail = error_case(path)

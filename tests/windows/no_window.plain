@@ -1,0 +1,16 @@
+try
+    rectangle(0, 0, 10, 10)
+catch error then
+    say error
+end
+try
+    say running()
+catch error then
+    say error
+end
+try
+    window("Bad", 0, 100)
+catch error then
+    say error
+end
+say "ok"

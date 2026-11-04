@@ -3,3 +3,7 @@ __pycache__/
 *.o
 *.obj
 *.exe
+ide/build/
+ide/dist/
+packaging/build/
+packaging/dist/

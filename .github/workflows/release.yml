@@ -1,0 +1,73 @@
+name: release
+# Push a tag like v0.2.0 (or start this workflow by hand) to get a DRAFT release
+# with ready-to-use downloads for Windows and Linux. Check it, then press "Publish".
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag for the release, e.g. v0.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { os: windows-latest, name: windows-x64, exe: ".exe", pack: zip }
+          - { os: ubuntu-latest, name: linux-x64, exe: "", pack: tar }
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pyinstaller
+      - name: Build the IDE
+        run: python ide/build.py
+      - name: Build the compiler program
+        run: python -m PyInstaller --noconfirm --onefile --name plain --paths . --distpath dist --workpath build --specpath build packaging/plain_cli.py
+      - name: Collect files
+        shell: bash
+        run: |
+          mkdir -p "plain-${TAG}-${{ matrix.name }}"
+          cd "plain-${TAG}-${{ matrix.name }}"
+          cp ../dist/plain${{ matrix.exe }} .
+          cp ../ide/dist/PlainIDE${{ matrix.exe }} .
+          cp -r ../examples ../docs .
+          cp ../README.md ../LICENSE ../LICENSE-EXCEPTION.md .
+      - name: Pack (zip)
+        if: matrix.pack == 'zip'
+        shell: pwsh
+        run: Compress-Archive -Path "plain-$env:TAG-${{ matrix.name }}" -DestinationPath "plain-$env:TAG-${{ matrix.name }}.zip"
+      - name: Pack (tar)
+        if: matrix.pack == 'tar'
+        run: tar -czf "plain-${TAG}-${{ matrix.name }}.tar.gz" "plain-${TAG}-${{ matrix.name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            plain-*.zip
+            plain-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloads
+          merge-multiple: true
+      - name: Create the draft release
+        run: |
+          gh release create "$TAG" downloads/* --draft --generate-notes --title "Plain $TAG" --target "$GITHUB_SHA"

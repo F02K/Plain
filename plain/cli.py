@@ -19,8 +19,8 @@ def main(argv=None):
 
     run = sub.add_parser("run", help="compile a program and run it")
     run.add_argument("file")
-    run.add_argument("--backend", choices=["native", "python"], default="native",
-                     help="native: assembly (default); python: translate to Python and run it")
+    run.add_argument("--backend", choices=["assembly", "native", "python"], default="assembly",
+                     help="assembly: NASM program (default; native is the same); python: translate to Python and run it")
 
     build = sub.add_parser("build", help="compile a program to an executable")
     build.add_argument("file")
@@ -64,6 +64,13 @@ def main(argv=None):
             print(f"Wrote {out}")
             return 0
         if args.command == "run" and args.backend == "python":
+            if getattr(sys, "frozen", False):
+                # The packaged program has no separate Python, so run the translation here.
+                try:
+                    exec(compile(py_text, "<plain>", "exec"), {"__name__": "__main__"})
+                except SystemExit as stop:
+                    return stop.code or 0
+                return 0
             with tempfile.TemporaryDirectory() as tmp:
                 path = os.path.join(tmp, "program.py")
                 with open(path, "w", encoding="utf-8") as f:

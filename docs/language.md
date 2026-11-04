@@ -2,7 +2,7 @@
 
 A complete description of Plain. New to the language? Start with [Getting started](getting-started.md).
 
-**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Built-in helpers - Errors - Reserved words
+**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Built-in helpers - Windows and drawing - Errors - Reserved words
 
 ## Types
 
@@ -187,8 +187,57 @@ Helpers with more values use brackets:
 | `part(text, start, count)` | `count` characters from position `start` (first is 0) | `part("Hello", 1, 3)` is `ell` |
 | `contains(text, piece)` | `true` if `piece` is inside `text` (also `contains(list, value)`) | `contains(name, "an")` |
 
-These names cannot be used for your own actions or types. A thing may still have a field
+These names (and the window helpers below) cannot be used for your own actions or types. A thing may still have a field
 called `length` and so on: `length of box` reads the field when `box` is a thing.
+
+## Windows and drawing
+
+A program can open a window and draw in it. Coordinates are numbers; `(0, 0)` is the top left corner,
+`x` grows to the right and `y` grows downwards. Colours are three numbers from 0 to 255 (red, green, blue).
+
+```
+window("My game", 640, 480)
+let x be 100
+while running() do
+    if pressed("left") then
+        set x to x - 4
+    end
+    color(20, 20, 40)
+    clear()                          note: start every picture with clear()
+    color(255, 170, 0)
+    circle(x, 200, 20)
+    write("x = " + x, 10, 10)
+    show()                           note: show the picture, then wait for the next frame
+end
+```
+
+| Helper | What it does |
+| --- | --- |
+| `window(title, width, height)` | opens the window (only one at a time) |
+| `color(red, green, blue)` | sets the colour for everything drawn next |
+| `clear()` | fills the whole window with the current colour |
+| `rectangle(x, y, width, height)` | a filled rectangle |
+| `circle(x, y, radius)` | a filled circle around `x, y` |
+| `line(x1, y1, x2, y2)` | a line |
+| `write(text, x, y)` | text with its top left corner at `x, y` |
+| `show()` | shows what was drawn and waits for the next frame (about 60 per second) |
+| `running()` | `true` while the window is open (`false` after the user closed it) |
+| `close_window()` | closes the window from the program |
+| `pressed(key)` | `true` while the key is held down; keys: `"left"`, `"right"`, `"up"`, `"down"`, `"space"`, `"enter"`, `"escape"`, `"shift"`, `"ctrl"`, `"tab"`, `"backspace"`, `"a"` to `"z"`, `"0"` to `"9"` |
+| `mouse_x()` / `mouse_y()` | where the mouse is inside the window |
+| `mouse_down()` | `true` while the left mouse button is held down |
+
+Things to know:
+
+- Drawing happens in the background; nothing appears until `show()`. Call `clear()` at the start of each picture,
+  otherwise old drawings stay.
+- Events (closing the window, keys) are handled inside `show()`, so call it in every round of your loop.
+- When the program ends while the window is open, the window stays until it is closed.
+- A window helper before `window(...)` is an error: `Open a window first`.
+- Windows work with the Python backend (tkinter) and with the Assembly backend on Windows (Win32).
+  On Linux the Assembly backend does not support windows yet; use `--backend python` there.
+- Set the environment variable `PLAIN_HEADLESS=1` to keep windows hidden (used by the tests).
+- See [`examples/ball.plain`](../examples/ball.plain).
 
 ## Errors
 

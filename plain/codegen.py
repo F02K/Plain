@@ -50,6 +50,7 @@ class Compiler:
         self.instances = {}
         self.strings = {}
         self.functions = []
+        self.uses_gfx = False
         self.label_count = 0
         self.fn = None
 
@@ -193,6 +194,8 @@ class Compiler:
         externs = list(RT.EXTERNS_COMMON)
         if self.target == "windows":
             externs.append("SetConsoleOutputCP")
+        if self.uses_gfx:
+            externs += RT.GFX_EXTERNS
         for name in externs:
             out.append(f"extern {name}")
         out.append("")
@@ -206,6 +209,8 @@ class Compiler:
             out.append("    mov ecx, 65001")
             out.append("    call SetConsoleOutputCP")
         out.append("    call plain_main")
+        if self.uses_gfx:
+            out.append("    call rt_gfx_finish")
         out.append("    xor eax, eax")
         out.append("    leave")
         out.append("    ret")
@@ -214,14 +219,20 @@ class Compiler:
             out.append(f"; ---- {ctx.name} ----")
             out.extend(ctx.lines)
         out.append(RT.RUNTIME)
+        if self.uses_gfx:
+            out.append(RT.GFX_RUNTIME)
         out.append("section .data")
         out.append(RT.DATA)
+        if self.uses_gfx:
+            out.append(RT.GFX_DATA)
         for data, label in self.strings.items():
             bytes_ = list(data) + [0]
             out.append(f"{label}: db " + ", ".join(str(b) for b in bytes_))
         out.append("")
         out.append("section .bss")
         out.append(RT.BSS)
+        if self.uses_gfx:
+            out.append(RT.GFX_BSS)
         if self.target == "linux":
             out.append("section .note.GNU-stack noalloc noexec nowrite progbits")
         return "\n".join(out) + "\n"
@@ -651,7 +662,14 @@ class Compiler:
         self.fn.depth -= n
         if e.name in L.NEEDS_LINE:
             self.emit(f"mov A{n + 1}, {e.line}")
-        if e.name in ("min", "max"):
+        if e.name in L.GFX:
+            if self.target == "linux":
+                self.error(e, "Program windows are not available in the Assembly backend on Linux yet.",
+                           "Run the program with the Python backend: plain run <file> --backend python")
+            self.uses_gfx = True
+            self.emit(f"mov qword [rel rt_line], {e.line}")
+            self.call_rt("rt_gfx_" + e.name)
+        elif e.name in ("min", "max"):
             self.emit("movq xmm0, A1")
             self.emit("movq xmm1, A2")
             self.emit(f"{e.name}sd xmm0, xmm1")
@@ -788,7 +806,7 @@ class Compiler:
 
     def call(self, e, want_value):
         if e.name in L.CALLS:
-            if not want_value:
+            if not want_value and L.CALLS[e.name][1] != T.NOTHING:
                 self.error(e, f"'{e.name}' gives a value, so this line does nothing on its own.",
                            "Use it inside 'say' or 'let', for example: say " + L.EXAMPLES[e.name])
             return self.builtin_call(e)

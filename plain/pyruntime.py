@@ -173,12 +173,200 @@ def _input_number(prompt, line):
         raise _PlainError("That is not a number.", line)
 
 
+def _finish():
+    """Runs after the program ends (a window stays open until it is closed)."""
+
+
 def _run(main):
     try:
         main()
+        _finish()
     except _PlainError as err:
         where = "Error in line %d: " % err.line if err.line else "Error: "
         print(where + err.message)
         sys.stdout.flush()
         sys.exit(1)
+'''
+
+# Added to a program only when it opens a window. The assembly backend does the same with Win32.
+GFX_PRELUDE = '''\
+import os as _os
+import time as _time
+
+_gfx = None
+
+_KEYS = {
+    "left": ("left",), "right": ("right",), "up": ("up",), "down": ("down",), "space": ("space",),
+    "enter": ("return",), "escape": ("escape",), "tab": ("tab",), "backspace": ("backspace",),
+    "shift": ("shift_l", "shift_r"), "ctrl": ("control_l", "control_r"),
+}
+
+
+class _Window:
+    pass
+
+
+def _need(line):
+    if _gfx is None:
+        raise _PlainError('Open a window first, for example: window("My game", 640, 480).', line)
+    return _gfx
+
+
+def _hex(value):
+    return "#%06x" % value
+
+
+def _window(title, width, height, line):
+    global _gfx
+    if _gfx is not None and _gfx.open:
+        raise _PlainError("A window is already open.", line)
+    w, h = int(width), int(height)
+    if not (1 <= w <= 4000 and 1 <= h <= 4000):
+        raise _PlainError("The window size must be between 1 and 4000.", line)
+    import tkinter
+    g = _Window()
+    try:
+        g.root = tkinter.Tk()
+    except tkinter.TclError:
+        raise _PlainError("I could not open the window.", line)
+    g.tk = tkinter
+    g.root.title(title)
+    g.root.resizable(False, False)
+    g.canvas = tkinter.Canvas(g.root, width=w, height=h, bg="#ffffff", highlightthickness=0, bd=0)
+    g.canvas.pack()
+    g.open = True
+    g.color = _gfx_color
+    g.keys = set()
+    g.mouse = [0, 0]
+    g.down = False
+    g.headless = bool(_os.environ.get("PLAIN_HEADLESS"))
+
+    def close():
+        g.open = False
+        g.root.destroy()
+
+    def moved(e):
+        g.mouse[:] = [e.x, e.y]
+
+    def button(state):
+        def handler(e):
+            g.down = state
+            g.mouse[:] = [e.x, e.y]
+        return handler
+
+    g.root.protocol("WM_DELETE_WINDOW", close)
+    g.root.bind("<KeyPress>", lambda e: g.keys.add(e.keysym.lower()))
+    g.root.bind("<KeyRelease>", lambda e: g.keys.discard(e.keysym.lower()))
+    g.canvas.bind("<Motion>", moved)
+    g.canvas.bind("<ButtonPress-1>", button(True))
+    g.canvas.bind("<ButtonRelease-1>", button(False))
+    if g.headless:
+        g.root.withdraw()
+    else:
+        g.root.focus_force()
+    _gfx = g
+
+
+def _color(r, g, b, line):
+    def part(v):
+        return max(0, min(255, int(v)))
+    global _gfx_color
+    _gfx_color = "#%02x%02x%02x" % (part(r), part(g), part(b))
+    if _gfx is not None:
+        _gfx.color = _gfx_color
+
+
+_gfx_color = "#000000"
+
+
+def _draw(line, action):
+    g = _need(line)
+    if g.open:
+        try:
+            action(g)
+        except g.tk.TclError:
+            g.open = False
+
+
+def _clear(line):
+    def action(g):
+        g.canvas.delete("all")
+        g.canvas.configure(bg=g.color)
+    _draw(line, action)
+
+
+def _rectangle(x, y, w, h, line):
+    _draw(line, lambda g: g.canvas.create_rectangle(int(x), int(y), int(x) + int(w) - 1, int(y) + int(h) - 1,
+                                                    fill=g.color, width=0))
+
+
+def _circle(x, y, r, line):
+    _draw(line, lambda g: g.canvas.create_oval(int(x) - int(r), int(y) - int(r), int(x) + int(r), int(y) + int(r),
+                                               fill=g.color, width=0))
+
+
+def _line(x1, y1, x2, y2, line):
+    _draw(line, lambda g: g.canvas.create_line(int(x1), int(y1), int(x2), int(y2), fill=g.color, width=2))
+
+
+def _write(text, x, y, line):
+    _draw(line, lambda g: g.canvas.create_text(int(x), int(y), anchor="nw", text=text, fill=g.color,
+                                               font=("Segoe UI", -20)))
+
+
+def _show(line):
+    g = _need(line)
+    if g.open:
+        try:
+            g.root.update()
+        except g.tk.TclError:
+            g.open = False
+        _time.sleep(0.015)
+
+
+def _running(line):
+    return _need(line).open
+
+
+def _close_window(line):
+    g = _need(line)
+    if g.open:
+        g.open = False
+        try:
+            g.root.destroy()
+        except g.tk.TclError:
+            pass
+
+
+def _pressed(name, line):
+    g = _need(line)
+    if name in _KEYS:
+        wanted = _KEYS[name]
+    elif len(name) == 1 and name.isalnum() and name.isascii():
+        wanted = (name.lower(),)
+    else:
+        raise _PlainError("I do not know that key. Use left, right, up, down, space, enter, escape, shift, "
+                          "ctrl, tab, backspace, a-z or 0-9.", line)
+    return g.open and any(k in g.keys for k in wanted)
+
+
+def _mouse_x(line):
+    return float(_need(line).mouse[0])
+
+
+def _mouse_y(line):
+    return float(_need(line).mouse[1])
+
+
+def _mouse_down(line):
+    return _need(line).down and _need(line).open
+
+
+def _finish():
+    g = _gfx
+    if g is not None and g.open and not g.headless:
+        try:
+            g.root.mainloop()
+        except g.tk.TclError:
+            pass
 '''

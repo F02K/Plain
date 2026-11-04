@@ -19,18 +19,18 @@ source -> lexer -> parser -> code generator -> NASM assembly -> nasm -> gcc (lin
 ## Backends
 
 ```
-                              +--> codegen.py -> NASM -> executable   (native)
+                              +--> codegen.py -> NASM -> executable   (assembly)
 source -> lexer -> parser ----+
                               +--> pygen.py   -> standalone .py       (python)
 ```
 
-The Python backend runs the native code generator first, only to type check, so
+The Python backend runs the assembly code generator first, only to type check, so
 both backends accept and reject the same programs and show the same error messages.
 Python uses its own dynamic types at run time; numbers are always floats, and
-the helpers in `pyruntime.py` reproduce the native number formatting and error
+the helpers in `pyruntime.py` reproduce the assembly number formatting and error
 messages. The test-suite runs every program on both backends.
 
-## Design (native backend)
+## Design (assembly backend)
 
 - Every value is one 64-bit slot: numbers are doubles, booleans 0/1, text a pointer to a
   zero-terminated string, a thing a pointer to its fields, a list a pointer to `[size, capacity, data]`.
@@ -50,7 +50,8 @@ messages. The test-suite runs every program on both backends.
 
 ## Roadmap
 
-1. Window/graphics support (SDL2 or raylib through `extern` declarations).
+1. Windows and drawing are done (Win32 in the assembly backend, tkinter in the Python backend; see
+   `plain/runtime_gfx.py`). Still open: the assembly backend on Linux (X11) and sprites/sound.
 2. Standard library: `Math`, `String`, `Window`, `Input`, `Draw`.
 3. Text, math and list helpers are done (see `plain/library.py` and the runtime).
 4. Sample project: a Pong-level 2D game.

@@ -13,6 +13,31 @@ from .lexer import tokenize
 from .parser import parse
 
 
+def _add_known_tool_folders():
+    """On Windows, find NASM and MinGW-w64 in their usual folders even if PATH is out of date."""
+    if not sys.platform.startswith("win"):
+        return
+    local = os.environ.get("LOCALAPPDATA", "")
+    folders = [r"C:\Program Files\NASM", r"C:\Program Files (x86)\NASM",
+               os.path.join(local, "bin", "NASM"), os.path.join(local, "Programs", "NASM"),
+               os.path.join(local, "Microsoft", "WinGet", "Links"),
+               r"C:\msys64\ucrt64\bin", r"C:\msys64\mingw64\bin", r"C:\mingw64\bin",
+               r"C:\ProgramData\chocolatey\bin"]
+    packages = os.path.join(local, "Microsoft", "WinGet", "Packages")
+    if os.path.isdir(packages):
+        for name in os.listdir(packages):
+            if name.startswith(("BrechtSanders.WinLibs", "NASM.NASM")):
+                root = os.path.join(packages, name)
+                folders += [root, os.path.join(root, "mingw64", "bin"), os.path.join(root, "mingw32", "bin")]
+    have = os.environ.get("PATH", "").lower().split(os.pathsep)
+    extra = [f for f in folders if os.path.isdir(f) and f.lower() not in have]
+    if extra:
+        os.environ["PATH"] = os.pathsep.join(extra + [os.environ.get("PATH", "")])
+
+
+_add_known_tool_folders()
+
+
 def host_target():
     return "windows" if sys.platform.startswith("win") else "linux"
 
@@ -29,7 +54,7 @@ def compile_to_python(source):
     accept and reject exactly the same programs.
     """
     program = parse(tokenize(source))
-    compile_program(program, "linux")
+    compile_program(program, "python")
     return generate_python(program)
 
 
@@ -72,5 +97,5 @@ def build_executable(asm_text, output, target, keep_asm=None):
             raise ToolError(
                 f"No Windows linker found (need MinGW-w64 gcc). I saved the object file: {object_output}\n"
                 "Link it on Windows with:  gcc program.obj -o program.exe")
-        _run([linker, obj_path, "-o", output])
+        _run([linker, obj_path, "-o", output, "-luser32", "-lgdi32"])
         return output
