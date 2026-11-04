@@ -45,16 +45,14 @@ messages. The test-suite runs every program on both backends.
 
 ## Status
 
-- Linux x64: built and tested.
-- Windows x64: assembly is generated and assembles with `nasm -f win64`; linking needs MinGW-w64.
-  Not yet run on a real Windows machine.
+- Linux x64: built and tested in CI.
+- Windows x64: built with `nasm -f win64` and linked with MinGW-w64; the full test-suite passes in CI on `windows-latest`.
 
 ## Roadmap
 
-1. Run the test-suite on Windows in CI.
-2. Window/graphics support (SDL2 or raylib through `extern` declarations).
-3. Standard library: `Math`, `String`, `Window`, `Input`, `Draw`.
-4. More text operations (length, parts of a text, upper case).
-5. Sample project: a Pong-level 2D game.
-6. Optimizations (keep values in registers, constant folding).
-7. Open design questions: explicit program entry point, multiple return values, inheritance.
+1. Window/graphics support (SDL2 or raylib through `extern` declarations).
+2. Standard library: `Math`, `String`, `Window`, `Input`, `Draw`.
+3. More text operations (length, parts of a text, upper case).
+4. Sample project: a Pong-level 2D game.
+5. Optimizations (keep values in registers, constant folding).
+6. Open design questions: explicit program entry point, multiple return values, inheritance.
