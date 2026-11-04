@@ -73,6 +73,7 @@ class Call(Node):
 @dataclass
 class Input(Node):
     prompt: Node
+    as_number: bool = False
 
 
 @dataclass

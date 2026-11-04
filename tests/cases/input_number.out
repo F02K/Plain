@@ -1,0 +1,4 @@
+A? B? 45.5
+C? bad: That is not a number.
+D? 200
+E? Error in line 12: That is not a number.

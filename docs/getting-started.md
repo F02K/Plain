@@ -43,6 +43,13 @@ say "Hello, " + name
 `input` shows the question, waits for the user to type a line and press Enter,
 and gives the line back as `text`.
 
+To read a number, use `input number`:
+
+```
+let age be input number "How old are you?"
+say "Next year: " + (age + 1)
+```
+
 ## 4. Decisions
 
 ```

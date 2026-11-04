@@ -542,6 +542,10 @@ class Compiler:
         if t != T.TEXT:
             self.error(e.prompt, f"'input' needs a text, but this is {self.describe(t)}.")
         self.emit("mov A1, rax")
+        if e.as_number:
+            self.emit(f"mov A2, {e.line}")
+            self.call_rt("rt_input_number")
+            return T.NUMBER
         self.call_rt("rt_input")
         return T.TEXT
 

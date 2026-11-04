@@ -153,6 +153,8 @@ class PyGen:
         return f"(not {self.expr(e.operand)})" if e.op == "not" else f"(-{self.expr(e.operand)})"
 
     def x_Input(self, e):
+        if e.as_number:
+            return f"_input_number({self.expr(e.prompt)}, {e.line})"
         return f"_input({self.expr(e.prompt)})"
 
     def x_Field(self, e):

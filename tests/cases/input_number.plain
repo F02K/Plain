@@ -1,0 +1,12 @@
+let a be input number "A?"
+let b be input number "B?"
+say a + b
+try
+    let c be input number "C?"
+    say c
+catch error then
+    say "bad: " + error
+end
+let d be input number "D?"
+say d * 2
+let e be input number "E?"

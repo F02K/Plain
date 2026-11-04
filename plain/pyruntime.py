@@ -96,6 +96,16 @@ def _input(prompt):
     return line.rstrip("\\r\\n")
 
 
+def _input_number(prompt, line):
+    text = _input(prompt)
+    if not all(c in "0123456789+-.eE " for c in text):
+        raise _PlainError("That is not a number.", line)
+    try:
+        return float(text.strip(" "))
+    except ValueError:
+        raise _PlainError("That is not a number.", line)
+
+
 def _run(main):
     try:
         main()

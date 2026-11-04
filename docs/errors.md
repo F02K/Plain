@@ -42,6 +42,7 @@ Error in line 2: Cannot divide by zero.
 | --- | --- |
 | `Cannot divide by zero.` | `/` with a divisor of 0. |
 | `Cannot use mod with zero.` | `mod 0`. |
+| `That is not a number.` | The user typed something else than a number at an `input number`. |
 | `That list position does not exist ...` | Index outside the list; the first item is at position 0. |
 | `The computer ran out of memory.` | Allocation failed. |
 
