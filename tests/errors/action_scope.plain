@@ -1,5 +1,5 @@
 let secret be 5
-action peek() do
+action peek do
     say secret
 end
-peek()
+do peek()

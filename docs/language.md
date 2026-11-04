@@ -82,13 +82,17 @@ end
 ## Actions (functions)
 
 ```
-action heal(player, amount) do
+action heal takes(player, amount) do
     set health of player to health of player + amount
 end
 
-heal(hero, 20)
+do heal(hero, 20)
 ```
 
+- Without values write just `action greet do`, and run it with `do greet()`.
+- `do` always means: run the code of an action. A line that runs an action starts with `do`
+  (`do heal(hero, 20)`). Inside an expression an action that returns a value needs no `do`:
+  `let total be add(1, 2)`.
 - Parameters have no type annotations. The compiler works out the types from the
   calls and compiles one version of the action for each combination of types.
 - `return value` gives a value back. Without `return`, an action gives back `nothing`.
@@ -192,48 +196,61 @@ called `length` and so on: `length of box` reads the field when `box` is a thing
 
 ## Windows and drawing
 
-A program can open a window and draw in it. Coordinates are numbers; `(0, 0)` is the top left corner,
-`x` grows to the right and `y` grows downwards. Colours are three numbers from 0 to 255 (red, green, blue).
+A program can open a window and draw in it. Everything is written as a short sentence. Coordinates are numbers;
+`(0, 0)` is the top left corner, `x` grows to the right and `y` grows downwards.
 
 ```
-window("My game", 640, 480)
+open window "My game" with width 640 and height 480
 let x be 100
-while running() do
-    if pressed("left") then
+while window is open do
+    if key "left" is pressed then
         set x to x - 4
     end
-    color(20, 20, 40)
-    clear()                          note: start every picture with clear()
-    color(255, 170, 0)
-    circle(x, 200, 20)
-    write("x = " + x, 10, 10)
-    show()                           note: show the picture, then wait for the next frame
+    clear window with color black    note: start every picture with a clear window
+    use color orange
+    draw circle at x, 200 radius 20
+    draw text "x = " + x at 10, 10
+    show window                      note: show the picture, then wait for the next frame
 end
 ```
 
-| Helper | What it does |
+| Sentence | What it does |
 | --- | --- |
-| `window(title, width, height)` | opens the window (only one at a time) |
-| `color(red, green, blue)` | sets the colour for everything drawn next |
-| `clear()` | fills the whole window with the current colour |
-| `rectangle(x, y, width, height)` | a filled rectangle |
-| `circle(x, y, radius)` | a filled circle around `x, y` |
-| `line(x1, y1, x2, y2)` | a line |
-| `write(text, x, y)` | text with its top left corner at `x, y` |
-| `show()` | shows what was drawn and waits for the next frame (about 60 per second) |
-| `running()` | `true` while the window is open (`false` after the user closed it) |
-| `close_window()` | closes the window from the program |
-| `pressed(key)` | `true` while the key is held down; keys: `"left"`, `"right"`, `"up"`, `"down"`, `"space"`, `"enter"`, `"escape"`, `"shift"`, `"ctrl"`, `"tab"`, `"backspace"`, `"a"` to `"z"`, `"0"` to `"9"` |
-| `mouse_x()` / `mouse_y()` | where the mouse is inside the window |
-| `mouse_down()` | `true` while the left mouse button is held down |
+| `open window "title" with width 640 and height 480` | opens the window (only one at a time) |
+| `close window` | closes the window from the program |
+| `show window` | shows what was drawn and waits for the next frame (about 60 per second) |
+| `clear window` | fills the whole window with the current colour |
+| `clear window with color black` | the same, with a colour |
+| `use color orange` | sets the colour for everything drawn next |
+| `draw rectangle at x, y size 100 by 50` | a filled rectangle with its top left corner at `x, y` |
+| `draw circle at x, y radius 20` | a filled circle around `x, y` |
+| `draw line from x1, y1 to x2, y2` | a line |
+| `draw text "Score" at x, y` | text with its top left corner at `x, y` |
+| `window is open` | `true` while the window is open (`false` after the user closed it) |
+| `key "left" is pressed` | `true` while the key is held down; keys: `"left"`, `"right"`, `"up"`, `"down"`, `"space"`, `"enter"`, `"escape"`, `"shift"`, `"ctrl"`, `"tab"`, `"backspace"`, `"a"` to `"z"`, `"0"` to `"9"`. The key can also be a text variable. |
+| `mouse x` / `mouse y` | where the mouse is inside the window |
+| `mouse is down` | `true` while the left mouse button is held down |
+
+### Colours
+
+- Named colours: `red`, `green`, `blue`, `yellow`, `orange`, `purple`, `pink`, `brown`, `gray`, `white`, `black`.
+  `use color orange`, `clear window with color black`.
+- Your own colours are things of the built-in type `Color` with the fields `red`, `green` and `blue` (0 to 255):
+
+  ```
+  let sky be Color(red: 20, green: 24, blue: 40)
+  use color sky
+  set red of sky to 100
+  ```
+- Three numbers work as well: `use color 255, 128, 0`.
 
 Things to know:
 
-- Drawing happens in the background; nothing appears until `show()`. Call `clear()` at the start of each picture,
+- Drawing happens in the background; nothing appears until `show window`. Use `clear window` at the start of each picture,
   otherwise old drawings stay.
-- Events (closing the window, keys) are handled inside `show()`, so call it in every round of your loop.
+- Events (closing the window, keys) are handled inside `show window`, so call it in every round of your loop.
 - When the program ends while the window is open, the window stays until it is closed.
-- A window helper before `window(...)` is an error: `Open a window first`.
+- Drawing before `open window` is an error: `Open a window first`.
 - Windows work with the Python backend (tkinter) and with the Assembly backend on Windows (Win32).
   On Linux the Assembly backend does not support windows yet; use `--backend python` there.
 - Set the environment variable `PLAIN_HEADLESS=1` to keep windows hidden (used by the tests).

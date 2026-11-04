@@ -1,6 +1,6 @@
 note: A small ball game. Move the paddle with the left and right arrow keys.
 note: Close the window to stop.
-window("Plain Ball", 480, 320)
+open window "Plain Ball" with width 480 and height 320
 
 let ball_x be 240
 let ball_y be 100
@@ -11,12 +11,12 @@ let score be 0
 let lives be 3
 
 let frames be 0
-while running() and frames < 200 do
+while window is open and frames < 200 do
     note: read the keys
-    if pressed("left") then
+    if key "left" is pressed then
         set paddle to max(0, paddle - 6)
     end
-    if pressed("right") then
+    if key "right" is pressed then
         set paddle to min(400, paddle + 6)
     end
 
@@ -46,15 +46,15 @@ while running() and frames < 200 do
     end
 
     note: draw everything
-    color(20, 24, 40)
-    clear()
-    color(240, 240, 240)
-    rectangle(paddle, 300, 80, 10)
-    color(255, 170, 0)
-    circle(ball_x, ball_y, 8)
-    color(255, 255, 255)
-    write("Score: " + score + "   Lives: " + lives, 10, 8)
-    show()
+    use color 20, 24, 40
+    clear window
+    use color 240, 240, 240
+    draw rectangle at paddle, 300 size 80 by 10
+    use color 255, 170, 0
+    draw circle at ball_x, ball_y radius 8
+    use color 255, 255, 255
+    draw text "Score: " + score + "   Lives: " + lives at 10, 8
+    show window
     set frames to frames + 1
 end
 say score

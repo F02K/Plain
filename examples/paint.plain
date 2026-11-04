@@ -1,0 +1,29 @@
+note: Hold the mouse button to paint. Keys 1, 2, 3 change the color, C clears the picture.
+let blue_pen be Color(red: 50, green: 100, blue: 230)
+let red_pen be Color(red: 230, green: 50, blue: 50)
+let green_pen be Color(red: 50, green: 180, blue: 70)
+let pen be blue_pen
+
+open window "Paint" with width 640 and height 480
+clear window with color white
+
+while window is open do
+    if key "1" is pressed then
+        set pen to blue_pen
+    end
+    if key "2" is pressed then
+        set pen to red_pen
+    end
+    if key "3" is pressed then
+        set pen to green_pen
+    end
+    if key "c" is pressed then
+        clear window with color white
+    end
+
+    if mouse is down then
+        use color pen
+        draw circle at mouse x, mouse y radius 6
+    end
+    show window
+end

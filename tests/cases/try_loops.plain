@@ -1,5 +1,5 @@
 note: stop, skip and return must leave try blocks cleanly
-action find(items) do
+action find takes(items) do
     for each n in items do
         try
             if n = 2 then

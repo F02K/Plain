@@ -20,14 +20,14 @@ define Player as
     score as number
 end
 
-action heal(player, amount) do
+action heal takes(player, amount) do
     set health of player to health of player + amount
 end
 
 let name be input "What is your name?"
 let hero be Player(health: 80, score: 0)
 
-heal(hero, 20)
+do heal(hero, 20)
 say name + " has " + health of hero + " health."
 ```
 

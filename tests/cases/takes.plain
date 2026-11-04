@@ -1,0 +1,13 @@
+action greet do
+    say "hello"
+end
+action add3 takes(a, b, c) do
+    return a + b + c
+end
+action twice takes(n) do
+    return -n * 2
+end
+do greet()
+say add3(1, 2, 3)
+say twice(-4)
+say add3(twice(1), 0, abs of -5)

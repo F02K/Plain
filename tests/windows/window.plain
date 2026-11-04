@@ -1,39 +1,39 @@
 note: Windows are hidden in the tests (PLAIN_HEADLESS), so this only checks the logic.
-window("Test", 320, 200)
-color(255, 0, 0)
-clear()
-color(0, 0, 255)
-rectangle(10, 10, 100, 50)
-circle(200, 100, 30)
-line(0, 0, 320, 200)
-write("Hello ä", 10, 120)
-color(300, -5, 0.5)
+open window "Test" with width 320 and height 200
+use color 255, 0, 0
+clear window
+use color 0, 0, 255
+draw rectangle at 10, 10 size 100 by 50
+draw circle at 200, 100 radius 30
+draw line from 0, 0 to 320, 200
+draw text "Hello ä" at 10, 120
+use color 300, -5, 0.5
 let frames be 0
-while running() and frames < 5 do
-    show()
+while window is open and frames < 5 do
+    show window
     set frames to frames + 1
 end
 say frames
-say running()
-say pressed("a")
-say pressed("left")
-say pressed("space")
-say mouse_x() >= -1000
-say mouse_y() < 100000
-say mouse_down()
+say window is open
+say key "a" is pressed
+say key "left" is pressed
+say key "space" is pressed
+say mouse x >= -1000
+say mouse y < 100000
+say mouse is down
 try
-    say pressed("banana")
+    say key "banana" is pressed
 catch error then
     say error
 end
 try
-    window("Second", 100, 100)
+    open window "Second" with width 100 and height 100
 catch error then
     say error
 end
-close_window()
-say running()
+close window
+say window is open
 note: drawing after the window is closed is allowed and does nothing visible
-rectangle(0, 0, 10, 10)
-show()
+draw rectangle at 0, 0 size 10 by 10
+show window
 say "done"

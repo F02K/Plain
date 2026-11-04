@@ -3,3 +3,5 @@ say "Hello, world!"
 
 let name be input "What is your name?"
 say "Nice to meet you, " + name
+say "Your name has " + length of name + " letters."
+say "In capitals: " + upper of name

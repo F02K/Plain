@@ -248,6 +248,10 @@ class Compiler:
     def statement(self, stmt):
         getattr(self, "s_" + type(stmt).__name__)(stmt)
 
+    def s_Group(self, s):
+        for stmt in s.body:
+            self.statement(stmt)
+
     def s_Let(self, s):
         if isinstance(s.value, N.ListInit):
             t = T.list_of(self.check_type(s.value.element_type, s.value))

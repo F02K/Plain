@@ -1,0 +1,3 @@
+action double(n) do
+    return n * 2
+end

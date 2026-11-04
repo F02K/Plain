@@ -1,0 +1,27 @@
+note: Draw a picture. Close the window to stop.
+let sky be Color(red: 120, green: 190, blue: 255)
+
+open window "My house" with width 480 and height 320
+
+while window is open do
+    clear window with color sky
+
+    use color yellow
+    draw circle at 410, 60 radius 30
+
+    use color green
+    draw rectangle at 0, 240 size 480 by 80
+
+    note: the house
+    use color brown
+    draw rectangle at 140, 150 size 160 by 100
+    use color red
+    draw line from 130, 150 to 220, 90
+    draw line from 220, 90 to 310, 150
+    use color white
+    draw rectangle at 190, 190 size 60 by 60
+
+    use color black
+    draw text "Home sweet home" at 160, 270
+    show window
+end

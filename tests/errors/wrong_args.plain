@@ -1,4 +1,4 @@
-action add2(a, b) do
+action add2 takes(a, b) do
     return a + b
 end
 say add2(1)

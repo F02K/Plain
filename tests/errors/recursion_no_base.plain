@@ -1,4 +1,4 @@
-action f(n) do
+action f takes(n) do
     return f(n - 1)
 end
 say f(1)

@@ -87,7 +87,7 @@ Use `stop` to leave a loop early and `skip` to jump to the next round.
 An action is a reusable piece of code.
 
 ```
-action square(n) do
+action square takes(n) do
     return n * n
 end
 

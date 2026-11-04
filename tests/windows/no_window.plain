@@ -1,15 +1,15 @@
 try
-    rectangle(0, 0, 10, 10)
+    draw rectangle at 0, 0 size 10 by 10
 catch error then
     say error
 end
 try
-    say running()
+    say window is open
 catch error then
     say error
 end
 try
-    window("Bad", 0, 100)
+    open window "Bad" with width 0 and height 100
 catch error then
     say error
 end

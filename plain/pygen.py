@@ -6,7 +6,7 @@ program that is rejected for the native target is rejected here too.
 
 from . import library as L
 from . import nodes as N
-from .pyruntime import GFX_PRELUDE, PRELUDE
+from .pyruntime import GFX_PRELUDE, PRELUDE, WATCH_PRELUDE
 
 
 def var(name):
@@ -14,10 +14,12 @@ def var(name):
 
 
 class PyGen:
-    def __init__(self, program):
+    def __init__(self, program, watch=False):
         self.program = program
         self.out = []
         self.uses_gfx = False
+        self.watch = watch
+        self.scope = ""   # name of the action being written, for the watcher
 
     def line(self, indent, text):
         self.out.append("    " * indent + text)
@@ -32,6 +34,11 @@ class PyGen:
                 self.action(stmt)
         self.line(0, "")
         self.line(0, "")
+        if self.watch:
+            acts = {a.name: (a.line, tuple(a.params)) for a in self.program.body if isinstance(a, N.ActionDef)}
+            self.line(0, "_ACT = " + repr(acts))
+            self.line(0, "")
+            self.line(0, "")
         self.line(0, "def _main():")
         body = [s for s in self.program.body if not isinstance(s, (N.DefineStruct, N.ActionDef))]
         self.block(body, 1)
@@ -41,6 +48,8 @@ class PyGen:
         self.line(1, "_run(_main)")
         if self.uses_gfx:
             self.out.insert(1, GFX_PRELUDE)
+        if self.watch:
+            self.out.insert(1, WATCH_PRELUDE)
         return "\n".join(self.out) + "\n"
 
     # ---- definitions ---------------------------------------------------------
@@ -59,9 +68,36 @@ class PyGen:
         self.line(0, "")
         self.line(0, "")
         self.line(0, f"def a_{a.name}(" + ", ".join(var(p) for p in a.params) + "):")
+        self.scope = a.name
+        for p in a.params:
+            self.watched(1, p, a.line, note=False)
         self.block(a.body, 1)
+        self.scope = ""
 
     # ---- statements ----------------------------------------------------------
+
+    def watched(self, indent, name, line, shown=None, note=True):
+        """Report a variable to the IDE (only when the program is built with watch=True)."""
+        if self.watch:
+            label = f"{self.scope}: {name}" if self.scope else name
+            if not note:
+                self.line(indent, f'_wvar("{label}", {var(name)}, {line})')
+            else:
+                self.line(indent, f'_watch("{label}", {var(name)}, {line}' + (f", {shown})" if shown else ")"))
+
+    def traced(self, node, code, prefix=None):
+        """Wrap an expression so the IDE can show its result next to the line."""
+        if not self.watch:
+            return code
+        extra = f", {prefix!r}" if prefix else ""
+        return f"_tr({node.line}, {code}{extra})"
+
+    def watch_list(self, indent, target, line):
+        root = target
+        while not isinstance(root, N.Var) and hasattr(root, "obj"):
+            root = root.obj
+        if isinstance(root, N.Var):
+            self.watched(indent, root.name, line)
 
     def block(self, body, indent):
         before = len(self.out)
@@ -70,27 +106,44 @@ class PyGen:
         if len(self.out) == before:
             self.line(indent, "pass")
 
+    def s_Group(self, s, i):
+        for stmt in s.body:
+            getattr(self, "s_" + type(stmt).__name__)(stmt, i)
+
     def s_Let(self, s, i):
         value = "[]" if isinstance(s.value, N.ListInit) else self.expr(s.value)
         self.line(i, f"{var(s.name)} = {value}")
+        self.watched(i, s.name, s.line)
 
     def s_Set(self, s, i):
         t = s.target
+        value = self.expr(s.value)
+        inner = self.watch and not isinstance(t, N.Var)
+        if inner:
+            value = f"(_v := {value})"      # keep the new value so the IDE can show it
         if isinstance(t, N.Var):
-            self.line(i, f"{var(t.name)} = {self.expr(s.value)}")
+            self.line(i, f"{var(t.name)} = {value}")
         elif isinstance(t, N.Field):
-            self.line(i, f'setattr({self.expr(t.obj)}, "f_{t.name}", {self.expr(s.value)})')
+            self.line(i, f'setattr({self.expr(t.obj)}, "f_{t.name}", {value})')
         else:
-            self.line(i, f"_set({self.expr(t.obj)}, {self.expr(t.index)}, {self.expr(s.value)}, {s.line})")
+            self.line(i, f"_set({self.expr(t.obj)}, {self.expr(t.index)}, {value}, {s.line})")
+        root = t
+        while not isinstance(root, N.Var) and hasattr(root, "obj"):
+            root = root.obj
+        if isinstance(root, N.Var):
+            self.watched(i, root.name, s.line, shown="_v" if inner else None)
 
     def s_Say(self, s, i):
         v = s.value
         text = v.value if isinstance(v, N.Str) else None
-        self.line(i, f"print({self.expr(v) if text is not None else '_fmt(' + self.expr(v) + ')'})")
+        if text is not None:
+            self.line(i, f"print({self.expr(v)})")
+        else:
+            self.line(i, f"print(_fmt({self.traced(v, self.expr(v))}))")
 
     def s_If(self, s, i):
         for n, (cond, body) in enumerate(s.branches):
-            self.line(i, ("if " if n == 0 else "elif ") + self.expr(cond) + ":")
+            self.line(i, ("if " if n == 0 else "elif ") + self.traced(cond, self.expr(cond)) + ":")
             self.block(body, i + 1)
         if s.else_body is not None:
             self.line(i, "else:")
@@ -101,11 +154,12 @@ class PyGen:
         self.block(s.body, i + 1)
 
     def s_While(self, s, i):
-        self.line(i, f"while {self.expr(s.cond)}:")
+        self.line(i, f"while {self.traced(s.cond, self.expr(s.cond))}:")
         self.block(s.body, i + 1)
 
     def s_ForEach(self, s, i):
         self.line(i, f"for {var(s.var)} in {self.expr(s.iterable)}:")
+        self.watched(i + 1, s.var, s.line)
         self.block(s.body, i + 1)
 
     def s_Stop(self, s, i):
@@ -115,22 +169,27 @@ class PyGen:
         self.line(i, "continue")
 
     def s_Return(self, s, i):
-        self.line(i, "return" if s.value is None else f"return {self.expr(s.value)}")
+        self.line(i, "return" if s.value is None
+                  else f"return {self.traced(s.value, self.expr(s.value), 'returns ')}")
 
     def s_ExprStmt(self, s, i):
         self.line(i, self.expr(s.expr))
 
     def s_Add(self, s, i):
         self.line(i, f"{self.expr(s.target)}.append({self.expr(s.item)})")
+        self.watch_list(i, s.target, s.line)
 
     def s_Remove(self, s, i):
         self.line(i, f"_remove({self.expr(s.target)}, {self.expr(s.item)})")
+        self.watch_list(i, s.target, s.line)
 
     def s_RemoveAt(self, s, i):
         self.line(i, f"_remove_at({self.expr(s.target)}, {self.expr(s.index)}, {s.line})")
+        self.watch_list(i, s.target, s.line)
 
     def s_Sort(self, s, i):
         self.line(i, f"{self.expr(s.target)}.sort()")
+        self.watch_list(i, s.target, s.line)
 
     def s_Try(self, s, i):
         self.line(i, "try:")
@@ -194,12 +253,16 @@ class PyGen:
         if e.name in L.CALLS:
             if e.name in L.GFX:
                 self.uses_gfx = True
+                if self.watch:
+                    return f"_tg({e.line}, _{e.name}" + "".join(", " + self.expr(a) for a in e.args) + ")"
             return f"_{e.name}(" + ", ".join([self.expr(a) for a in e.args] + [str(e.line)]) + ")"
         if e.named is not None:
             args = ", ".join(f"f_{n}={self.expr(v)}" for n, v in e.named)
             return f"T_{e.name}({args})"
+        if self.watch:
+            return f'_tc({e.line}, "{e.name}", a_{e.name}' + "".join(", " + self.expr(a) for a in e.args) + ")"
         return f"a_{e.name}(" + ", ".join(self.expr(a) for a in e.args) + ")"
 
 
-def generate_python(program):
-    return PyGen(program).generate()
+def generate_python(program, watch=False):
+    return PyGen(program, watch).generate()

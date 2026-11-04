@@ -1,0 +1,33 @@
+note: Lists: add, search, sort and a little statistics.
+let scores be list of number
+add 42 to scores
+add 7 to scores
+add 19 to scores
+add 88 to scores
+add 7 to scores
+
+let best be scores at 0
+let worst be scores at 0
+let total be 0
+for each score in scores do
+    set best to max(best, score)
+    set worst to min(worst, score)
+    set total to total + score
+end
+say "Best: " + best
+say "Worst: " + worst
+say "Average: " + round of (total / size of scores)
+
+if contains(scores, 19) then
+    say "19 is in the list."
+end
+
+sort scores
+say "Sorted:"
+for each score in scores do
+    say "  " + score
+end
+
+remove 7 from scores
+remove at 0 from scores
+say "Left over: " + size of scores

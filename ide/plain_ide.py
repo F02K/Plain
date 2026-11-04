@@ -49,18 +49,27 @@ from tkinter import font as tkfont  # noqa: E402
 
 from plain.errors import PlainError, format_error  # noqa: E402
 from plain.lexer import KEYWORDS  # noqa: E402
-from plain.library import CALLS, OF  # noqa: E402
+from plain.library import CALLS, GFX, OF  # noqa: E402
+from plain.parser import COLORS  # noqa: E402
 from plain.toolchain import ToolError, build_executable, compile_source, compile_to_python, host_target  # noqa: E402
+
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+from symbols import TOKEN, analyze  # noqa: E402
 
 TITLE = "Plain IDE"
 VERSION = "0.2"
 NEW_PROGRAM = 'say "Hello, world!"\n'
 INDENT = "    "
 OPENERS = re.compile(r"\b(then|do|as|times)$")
-TOKEN = re.compile(r'(?P<comment>\bnote:[^\n]*)|(?P<string>"(?:[^"\\\n]|\\.)*"?)|'
-                   r'(?P<number>\b\d+(?:\.\d+)?\b)|(?P<word>[A-Za-z_][A-Za-z0-9_]*)')
 WORD_BEFORE_CURSOR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*$")
-HELPERS = set(CALLS) | set(OF)
+HELPER_CALLS = set(CALLS) - set(GFX)
+HELPERS = HELPER_CALLS | set(OF)
+# The window sentences are highlighted as a whole, so that names like 'size' or 'color' stay ordinary names.
+PHRASES = re.compile(r'\b(?:open window|close window|show window|clear window(?: with color)?|use color|'
+                     r'draw (?:rectangle|circle|line|text)|window is open|mouse is down|mouse x|mouse y|is pressed|'
+                     r'key(?= (?:"[^"\n]*"|\w+) is pressed)|takes(?=\s*\())')
+COLOR_WORD = re.compile(r"(?<=color )(?:" + "|".join(COLORS) + r")\b")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # Words that expand into a whole block when you accept them in the completion list.
@@ -70,7 +79,13 @@ SNIPPETS = {
     "while": "while | do\n{i}    \n{i}end",
     "repeat": "repeat | times\n{i}    \n{i}end",
     "for": "for each | in  do\n{i}    \n{i}end",
-    "action": "action |name() do\n{i}    \n{i}end",
+    "action": "action |name takes() do\n{i}    \n{i}end",
+    "open": 'open window "|My game" with width 640 and height 480',
+    "draw": "draw circle at |200, 150 radius 20",
+    "use": "use color |orange",
+    "clear": "clear window with color |black",
+    "show": "show window",
+    "close": "close window",
     "define": "define |Name as\n{i}    field as number\n{i}end",
     "try": "try\n{i}    |\n{i}catch error then\n{i}    \n{i}end",
 }
@@ -81,6 +96,8 @@ LIGHT = {
     "comment": "#8a8f98", "error_line": "#ffd9d9",
     "out_bg": "#fafafa", "out_err": "#c62828", "out_in": "#0b5cad", "out_info": "#6b7280",
     "pop_bg": "#ffffff", "pop_sel": "#cfe3ff",
+    "symbol": "#fff1b8", "symbol_def": "#ffd966", "watch_changed": "#fff1b8",
+    "inline_fg": "#4a5d86", "inline_bg": "#eef2fb",
 }
 
 CHEAT_SHEET = """\
@@ -90,7 +107,8 @@ Output / input   say "Hello"                let name be input "Name?"
 Decisions        if x > 3 then ... else if ... then ... else ... end
 Loops            repeat 3 times ... end     while x > 0 do ... end
                  for each item in items do ... end      stop / skip
-Actions          action add(a, b) do  return a + b  end
+Actions          action add takes(a, b) do  return a + b  end      do add(1, 2)   or   let n be add(1, 2)
+                 action greet do ... end                           do greet()
 Things           define Player as  x as number  end
                  let p be Player(x: 0)      say x of p
 Lists            let l be list of number    add 5 to l     remove 5 from l
@@ -101,16 +119,22 @@ Text helpers     length of t   upper of t   lower of t
                  part(t, 0, 3)              contains(t, "a")
 Number helpers   round of x    abs of x     sqrt of x
                  min(a, b)     max(a, b)    random(1, 6)
-Windows          window("Title", 640, 480)   color(r, g, b)   clear()   show()
-                 rectangle(x, y, w, h)      circle(x, y, r)  line(x1, y1, x2, y2)
-                 write("text", x, y)         running()        close_window()
-                 pressed("left")  mouse_x()  mouse_y()  mouse_down()
+Windows          open window "Title" with width 640 and height 480
+                 while window is open do ... show window ... end     close window
+                 use color orange           use color 255, 128, 0    clear window with color black
+                 draw rectangle at x, y size w by h      draw circle at x, y radius r
+                 draw line from x1, y1 to x2, y2         draw text "hi" at x, y
+                 key "left" is pressed      mouse x   mouse y   mouse is down
+Colors           red green blue yellow orange purple pink brown gray white black
+                 let sky be Color(red: 20, green: 24, blue: 40)    use color sky
 Errors           try ... catch error then ... end
 Comments         note: this is a comment
 
 In the editor    F5 run, Shift+F5 stop, Ctrl+Space complete, Tab/Enter accept a suggestion
                  Ctrl+N new tab, Ctrl+W close tab, Ctrl+Tab next tab, Ctrl+O open, Ctrl+S save
                  'if', 'while', 'repeat', 'for', 'action', 'define' and 'try' fill in a whole block
+Understanding    click a name to see where it is created and used (Ctrl+click jumps to where it is created)
+                 'Live values' (next to Run) shows the values behind your code while the program runs; 'Value list' lists them
 """
 
 
@@ -160,8 +184,8 @@ class Runner:
     def running(self):
         return self.proc is not None and self.proc.poll() is None
 
-    def start(self, cmd):
-        env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
+    def start(self, cmd, extra_env=None):
+        env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8", **(extra_env or {}))
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, bufsize=0, env=env,
                                      creationflags=NO_WINDOW)
@@ -213,13 +237,13 @@ class Completer:
         return m.group() if m else ""
 
     def candidates(self, prefix):
-        words = set(KEYWORDS) | HELPERS
+        words = set(KEYWORDS) | HELPERS | set(SNIPPETS)
         for m in TOKEN.finditer(self.tab.text.get("1.0", "end-1c")):
             if m.lastgroup == "word":
                 words.add(m.group())
         low = prefix.lower()
         found = [w for w in words if w.lower().startswith(low) and w != prefix]
-        found.sort(key=lambda w: (w not in KEYWORDS and w not in HELPERS, w.lower()))
+        found.sort(key=lambda w: (w not in KEYWORDS and w not in HELPERS and w not in SNIPPETS, w.lower()))
         return found[:12]
 
     def update(self, force=False):
@@ -289,7 +313,7 @@ class Completer:
             text.insert("insert", template.replace("|", "", 1))
             text.mark_set("insert", f"{start}+{cursor}c")
             return True
-        suffix = "(" if word in CALLS else " of " if word in OF else ""
+        suffix = "(" if word in HELPER_CALLS else " of " if word in OF else ""
         text.insert("insert", word + suffix)
         return True
 
@@ -303,6 +327,9 @@ class EditorTab(ttk.Frame):
         self.path = path
         self.dirty = False
         self.highlight_job = None
+        self.symbol_job = None
+        self.inline = {}          # line number -> text shown behind the code while the program runs
+        self.inline_labels = {}
         self.line_count = 0
         self.untitled = None
         if path is None:
@@ -319,17 +346,24 @@ class EditorTab(ttk.Frame):
                             wrap="none", bd=0, highlightthickness=0, padx=8, pady=4, tabs=(font.measure(INDENT),))
         self.yscroll = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
         xscroll = ttk.Scrollbar(self, orient="horizontal", command=self.text.xview)
-        self.text.config(yscrollcommand=self.on_yscroll, xscrollcommand=xscroll.set)
+        self.text.config(yscrollcommand=self.on_yscroll,
+                         xscrollcommand=lambda a, b: (xscroll.set(a, b), self.refresh_inline()))
         self.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         self.gutter.grid(row=0, column=0, sticky="ns")
         self.text.grid(row=0, column=1, sticky="nsew")
         self.yscroll.grid(row=0, column=2, sticky="ns")
         xscroll.grid(row=1, column=1, sticky="ew")
+        self.info = ttk.Label(self, text="", anchor="w", padding=(8, 3), foreground=t["out_info"])
+        self.info.grid(row=2, column=0, columnspan=3, sticky="ew")
 
         for tag in ("keyword", "helper", "string", "number", "comment"):
             self.text.tag_configure(tag, foreground=t[tag])
         self.text.tag_configure("error_line", background=t["error_line"])
+        self.text.tag_configure("symbol", background=t["symbol"])
+        self.text.tag_configure("symbol_def", background=t["symbol_def"], underline=True)
+        self.text.tag_lower("symbol")
+        self.text.tag_lower("symbol_def")
         self.text.tag_raise("sel")
 
         self.completer = Completer(self)
@@ -343,7 +377,8 @@ class EditorTab(ttk.Frame):
             self.text.bind(key, lambda e: self.completer.hide(), add="+")
         self.text.bind("<Control-space>", lambda e: (self.completer.update(force=True), "break")[1])
         self.text.bind("<KeyRelease>", self.on_key_release)
-        self.text.bind("<ButtonRelease-1>", lambda e: (self.completer.hide(), self.clear_marks()))
+        self.text.bind("<ButtonRelease-1>", lambda e: (self.completer.hide(), self.clear_marks(), self.schedule_symbol()))
+        self.text.bind("<Control-Button-1>", self.goto_definition)
         # The text widget has its own Ctrl keys (Ctrl+O opens a new line...), so route ours through it.
         for key, action in (("n", app.new_tab), ("o", app.open_dialog), ("s", app.save), ("S", app.save_as),
                             ("w", app.close_tab), ("Tab", app.next_tab), ("Shift-Tab", lambda: app.next_tab(-1))):
@@ -381,6 +416,8 @@ class EditorTab(ttk.Frame):
             self.dirty = True
             self.app.tab_changed(self)
         self.update_gutter()
+        if self.inline and not self.app.runner.running:
+            self.clear_inline()     # the lines may have moved, so the old values no longer fit
         if self.highlight_job:
             self.after_cancel(self.highlight_job)
         self.highlight_job = self.after(120, self.rehighlight)
@@ -390,6 +427,52 @@ class EditorTab(ttk.Frame):
     def on_yscroll(self, first, last):
         self.yscroll.set(first, last)
         self.gutter.yview_moveto(first)
+        self.refresh_inline()
+
+    # ---- live values behind the code -----------------------------------------
+
+    def set_inline(self, lines):
+        changed = {n for n, text in lines.items() if self.inline.get(n) != text}
+        self.inline = lines
+        self.refresh_inline(changed)
+
+    def clear_inline(self):
+        self.inline = {}
+        for label in self.inline_labels.values():
+            label.destroy()
+        self.inline_labels = {}
+
+    def refresh_inline(self, changed=()):
+        if not self.inline and not self.inline_labels:
+            return
+        t = self.app.theme
+        try:
+            first = int(self.text.index("@0,0").split(".")[0])
+            last = int(self.text.index(f"@0,{self.text.winfo_height()}").split(".")[0])
+        except (tk.TclError, ValueError):
+            return
+        small = self.app.small_font
+        for n, label in list(self.inline_labels.items()):
+            if n not in self.inline or not first <= n <= last:
+                label.place_forget()
+        for n in range(first, last + 1):
+            text = self.inline.get(n)
+            box = self.text.bbox(f"{n}.end") if text else None
+            if not box:
+                continue
+            x, y, w, h = box
+            label = self.inline_labels.get(n)
+            if label is None:
+                label = tk.Label(self.text, font=small, fg=t["inline_fg"], bg=t["inline_bg"], padx=6, pady=0,
+                                 anchor="w", bd=0)
+                self.inline_labels[n] = label
+            shown = text.replace("->", "→")
+            if label.cget("text") != shown:
+                label.config(text=shown)
+            label.place(x=x + w + 18, y=y, height=h)
+            if n in changed:
+                label.config(bg=t["watch_changed"])
+                self.after(700, lambda lb=label: lb.winfo_exists() and lb.config(bg=t["inline_bg"]))
 
     def on_wheel(self, event):
         step = -1 if (event.num == 4 or getattr(event, "delta", 0) > 0) else 1
@@ -411,17 +494,67 @@ class EditorTab(ttk.Frame):
         self.highlight_job = None
         for tag in ("keyword", "helper", "string", "number", "comment"):
             self.text.tag_remove(tag, "1.0", "end")
-        for m in TOKEN.finditer(self.source()):
+        source = self.source()
+        quiet = []  # comments and texts: sentence words inside them stay plain
+        for m in TOKEN.finditer(source):
             kind = m.lastgroup
+            if kind in ("comment", "string"):
+                quiet.append((m.start(), m.end()))
             if kind == "word":
                 word = m.group()
                 kind = "keyword" if word in KEYWORDS else "helper" if word in HELPERS else None
                 if kind is None:
                     continue
             self.text.tag_add(kind, f"1.0+{m.start()}c", f"1.0+{m.end()}c")
+        for pattern in (PHRASES, COLOR_WORD):
+            for m in pattern.finditer(source):
+                if not any(a <= m.start() < b for a, b in quiet):
+                    self.text.tag_add("helper", f"1.0+{m.start()}c", f"1.0+{m.end()}c")
 
     def clear_marks(self):
         self.text.tag_remove("error_line", "1.0", "end")
+
+    # ---- understanding a name ------------------------------------------------
+
+    def schedule_symbol(self):
+        if self.symbol_job:
+            self.after_cancel(self.symbol_job)
+        self.symbol_job = self.after(150, self.update_symbol)
+
+    def update_symbol(self):
+        """Mark where the name under the cursor is created (strong) and used (light) and explain it."""
+        self.symbol_job = None
+        for tag in ("symbol", "symbol_def"):
+            self.text.tag_remove(tag, "1.0", "end")
+        line, col = (int(n) for n in self.text.index("insert").split("."))
+        try:
+            found = analyze(self.source(), line, col)
+        except Exception:  # an explanation must never get in the way of typing
+            found = None
+        if not found:
+            self.info.config(text="")
+            return
+        self.info.config(text=f"{found['word']}   -   {found['text']}" if found["text"] else "")
+        for tag, spans in (("symbol", found["uses"]), ("symbol_def", found["defs"])):
+            for a, b in spans:
+                self.text.tag_add(tag, f"1.0+{a}c", f"1.0+{b}c")
+
+    def goto_definition(self, event):
+        line, col = (int(n) for n in self.text.index(f"@{event.x},{event.y}").split("."))
+        found = analyze(self.source(), line, col)
+        if found and found["defs"]:
+            self.text.mark_set("insert", f"1.0+{found['defs'][0][0]}c")
+            self.text.see("insert")
+            self.update_symbol()
+        return "break"
+
+    def show_name(self, name, line):
+        """Used by the value watcher: jump to the line where a value changed and explain the name."""
+        text = self.text.get(f"{line}.0", f"{line}.end")
+        m = re.search(r"\b" + re.escape(name) + r"\b", text)
+        self.text.mark_set("insert", f"{line}.{m.start() if m else 0}")
+        self.text.see("insert")
+        self.update_symbol()
 
     def mark_line(self, line):
         if line and line >= 1:
@@ -458,6 +591,7 @@ class EditorTab(ttk.Frame):
 
     def on_key_release(self, event):
         key = event.keysym
+        self.schedule_symbol()
         if not (len(key) == 1 and (key.isalnum() or key == "_")) and key not in ("BackSpace", "Delete"):
             return
         # Pull 'end', 'else' and 'catch' back to the level of the block they close.
@@ -485,10 +619,17 @@ class App:
         self.ui_queue = queue.Queue()
         self.reporting = False
         self.folder_nodes = {}
+        self.watch_var = tk.BooleanVar(value=False)    # the list of values on the right
+        self.live_var = tk.BooleanVar(value=False)     # the values behind the code
+        self.watch_file = None
+        self.watch_seq = 0
+        self.watch_rows = {}
+        self.watch_changed = {}
 
         base = tkfont.nametofont("TkFixedFont").copy()
         family = "Consolas" if sys.platform.startswith("win") else base.actual("family")
         self.font = tkfont.Font(family=family, size=13)
+        self.small_font = tkfont.Font(family=family, size=10)
 
         self.build_menu()
         self.build_toolbar()
@@ -504,6 +645,7 @@ class App:
         self.tab_changed()
         root.protocol("WM_DELETE_WINDOW", self.quit)
         root.after(40, self.poll)
+        root.after(200, self.poll_watch)
         root.after(20000, self.autosave)
 
     # ---- layout --------------------------------------------------------------
@@ -541,6 +683,8 @@ class App:
         view_menu = tk.Menu(menu, tearoff=False)
         view_menu.add_command(label="Bigger text", accelerator="Ctrl++", command=lambda: self.zoom(1))
         view_menu.add_command(label="Smaller text", accelerator="Ctrl+-", command=lambda: self.zoom(-1))
+        view_menu.add_checkbutton(label="Live values in the code", variable=self.live_var)
+        view_menu.add_checkbutton(label="List of values", variable=self.watch_var, command=self.toggle_watch)
         menu.add_cascade(label="View", menu=view_menu)
 
         help_menu = tk.Menu(menu, tearoff=False)
@@ -560,6 +704,9 @@ class App:
         self.backend = tk.StringVar(value="Python")
         ttk.Combobox(bar, textvariable=self.backend, values=["Python", "Assembly"], width=8,
                      state="readonly").pack(side="left")
+        ttk.Checkbutton(bar, text="Live values", variable=self.live_var).pack(side="left", padx=(18, 0))
+        ttk.Checkbutton(bar, text="Value list", variable=self.watch_var,
+                        command=self.toggle_watch).pack(side="left", padx=(10, 0))
 
     def build_panes(self):
         t = self.theme
@@ -583,8 +730,34 @@ class App:
 
         main = ttk.Frame(self.hpane)
         self.hpane.add(main, weight=1)
-        vpane = ttk.PanedWindow(main, orient="vertical")
-        vpane.pack(fill="both", expand=True)
+        self.editor_split = ttk.PanedWindow(main, orient="horizontal")
+        self.editor_split.pack(fill="both", expand=True)
+        vpane = ttk.PanedWindow(self.editor_split, orient="vertical")
+        self.editor_split.add(vpane, weight=1)
+
+        # The value watcher on the right: hidden until 'Watch values' is switched on.
+        self.watch_frame = ttk.Frame(self.editor_split, width=300)
+        ttk.Label(self.watch_frame, text="Values while the program runs", padding=(6, 4),
+                  font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w")
+        self.watch_tree = ttk.Treeview(self.watch_frame, columns=("value", "line"), show="tree headings",
+                                       selectmode="browse")
+        self.watch_tree.heading("#0", text="Name")
+        self.watch_tree.heading("value", text="Value")
+        self.watch_tree.heading("line", text="Line")
+        self.watch_tree.column("#0", width=110, stretch=False)
+        self.watch_tree.column("value", width=170, stretch=True)
+        self.watch_tree.column("line", width=40, stretch=False, anchor="e")
+        self.watch_tree.tag_configure("changed", background=t["watch_changed"])
+        watch_scroll = ttk.Scrollbar(self.watch_frame, orient="vertical", command=self.watch_tree.yview)
+        self.watch_tree.config(yscrollcommand=watch_scroll.set)
+        self.watch_tree.grid(row=1, column=0, sticky="nsew")
+        watch_scroll.grid(row=1, column=1, sticky="ns")
+        self.watch_note = ttk.Label(self.watch_frame, text="", padding=(6, 4), wraplength=260,
+                                    foreground=t["out_info"])
+        self.watch_note.grid(row=2, column=0, columnspan=2, sticky="ew")
+        self.watch_frame.rowconfigure(1, weight=1)
+        self.watch_frame.columnconfigure(0, weight=1)
+        self.watch_tree.bind("<<TreeviewSelect>>", self.on_watch_select)
 
         self.notebook = ttk.Notebook(vpane)
         self.notebook.bind("<<NotebookTabChanged>>", lambda e: self.on_tab_switch())
@@ -634,6 +807,8 @@ class App:
 
     def zoom(self, delta):
         self.font.configure(size=max(8, min(36, self.font.cget("size") + delta)))
+        self.small_font.configure(size=max(7, self.font.cget("size") - 3))
+        self.root.after(50, lambda: [tab.refresh_inline() for tab in self.tabs()])
 
     # ---- tabs ----------------------------------------------------------------
 
@@ -896,6 +1071,12 @@ class App:
         for t in self.tabs():
             t.clear_marks()
         self.clear_output()
+        self.reset_watch()
+        watch = (self.watch_var.get() or self.live_var.get()) and self.backend.get() == "Python"
+        for t in self.tabs():
+            t.clear_inline()
+        if self.live_var.get() and self.backend.get() != "Python":
+            tab.info.config(text="Live values work with the Python backend. Choose 'Python' next to the Run button.")
         if self.backend.get() == "Assembly":
             if not (shutil.which("nasm") and shutil.which("gcc")):
                 self.write_output("The Assembly backend needs NASM and gcc, and I cannot find them.\n"
@@ -908,11 +1089,15 @@ class App:
         try:
             py_path = os.path.join(self.tmp, f"program{run_id}.py")
             with open(py_path, "w", encoding="utf-8") as f:
-                f.write(compile_to_python(source))
+                f.write(compile_to_python(source, watch=watch))
         except PlainError as err:
             self.show_compile_error(tab, source, err)
             return
-        self.start_program(self.child_command() + [py_path])
+        extra_env = None
+        if watch:
+            self.watch_file = os.path.join(self.tmp, f"watch{run_id}.json")
+            extra_env = {"PLAIN_WATCH": self.watch_file}
+        self.start_program(self.child_command() + [py_path], extra_env=extra_env)
 
     def compile_assembly(self, run_id, tab, source):
         """Runs in a thread so the window stays alive while NASM and gcc work."""
@@ -946,12 +1131,12 @@ class App:
         self.clear_output()
         self.write_output(str(err) + "\n", "err")
 
-    def start_program(self, cmd, run_id=None):
+    def start_program(self, cmd, run_id=None, extra_env=None):
         if run_id is not None and run_id != self.run_id:
             return
         self.clear_output()
         try:
-            self.runner.start(cmd)
+            self.runner.start(cmd, extra_env)
         except OSError as exc:
             self.set_running(False)
             self.write_output(f"I could not start the program: {exc}\n", "err")
@@ -975,6 +1160,76 @@ class App:
             self.entry.focus_set()
         elif not running and self.current():
             self.current().text.focus_set()
+
+    # ---- watching values -----------------------------------------------------
+
+    def toggle_watch(self):
+        shown = str(self.watch_frame) in self.editor_split.panes()
+        if self.watch_var.get() and not shown:
+            self.editor_split.add(self.watch_frame, weight=0)
+        elif not self.watch_var.get() and shown:
+            self.editor_split.forget(self.watch_frame)
+        self.reset_watch()
+
+    def reset_watch(self):
+        self.watch_file = None
+        self.watch_seq = 0
+        self.watch_rows = {}
+        self.watch_changed = {}
+        self.watch_tree.delete(*self.watch_tree.get_children())
+        if self.backend.get() == "Assembly":
+            self.watch_note.config(text="Watching values works with the Python backend. "
+                                        "Choose 'Python' next to the Run button.")
+        else:
+            self.watch_note.config(text="Run the program to see its values. Values that just changed "
+                                        "are highlighted. Click a row to find it in the code.")
+
+    def poll_watch(self):
+        try:
+            if (self.watch_var.get() or self.live_var.get()) and self.watch_file \
+                    and os.path.exists(self.watch_file):
+                with open(self.watch_file, encoding="utf-8") as f:
+                    data = json.load(f)
+                if data.get("seq") != self.watch_seq:
+                    self.watch_seq = data["seq"]
+                    if self.watch_var.get():
+                        self.update_watch(data["vars"])
+                    tab = self.run_tab
+                    if self.live_var.get() and tab in self.tabs():
+                        tab.set_inline({int(n): text for n, text in data.get("lines", {}).items()})
+            now = time.time()
+            for iid, since in list(self.watch_changed.items()):
+                if now - since > 1.2:
+                    if self.watch_tree.exists(iid):
+                        self.watch_tree.item(iid, tags=())
+                    del self.watch_changed[iid]
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        self.root.after(200, self.poll_watch)
+
+    def update_watch(self, rows):
+        for name, text, line in rows:
+            iid = self.watch_rows.get(name)
+            if iid is None:
+                self.watch_rows[name] = self.watch_tree.insert("", "end", text=name, values=(text, line))
+            elif self.watch_tree.set(iid, "value") != text:
+                self.watch_tree.set(iid, "value", text)
+                self.watch_tree.set(iid, "line", line)
+                self.watch_tree.item(iid, tags=("changed",))
+                self.watch_changed[iid] = time.time()
+
+    def on_watch_select(self, _event):
+        selected = self.watch_tree.selection()
+        tab = self.run_tab if self.run_tab in self.tabs() else self.current()
+        if not selected or tab is None:
+            return
+        name = self.watch_tree.item(selected[0], "text").split(": ")[-1]
+        try:
+            line = int(self.watch_tree.set(selected[0], "line"))
+        except ValueError:
+            return
+        self.notebook.select(tab)
+        tab.show_name(name, line)
 
     def send_input(self, _event):
         if not self.runner.running:

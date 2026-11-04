@@ -13,7 +13,7 @@ catch problem then
     say problem
 end
 
-action risky(n) do
+action risky takes(n) do
     return 10 / n
 end
 

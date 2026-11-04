@@ -64,9 +64,37 @@ def error_case(path):
     return False, "the program compiled but an error was expected"
 
 
+def symbol_checks():
+    """The IDE explains a name when you click it (ide/symbols.py). Checked here without opening any window."""
+    sys.path.insert(0, os.path.join(ROOT, "ide"))
+    from symbols import analyze
+    source = read(os.path.join(ROOT, "examples", "ball.plain"))
+    lines = source.splitlines()
+
+    def at(word, after):
+        for number, text in enumerate(lines, 1):
+            col = text.find(word)
+            if number >= after and col >= 0:
+                return number, col + 1
+        raise AssertionError(word)
+
+    expected = [("speed_x", 5, "field", 4), ("paddle", 5, "variable", 6), ("move_paddle", 5, "action", 2),
+                ("position", 5, "parameter", 1), ("while", 5, "help", 0)]
+    for word, after, kind, uses in expected:
+        found = analyze(source, *at(word, after))
+        if found["kind"] != kind or len(found["uses"]) != uses:
+            return False, f"{word}: expected {kind} with {uses} uses, got {found['kind']} with {len(found['uses'])}"
+    return True, ""
+
+
 def main():
     failures = 0
-    total = 0
+    total = 1
+    ok, detail = symbol_checks()
+    print(("PASS " if ok else "FAIL ") + "ide/symbols.py")
+    if not ok:
+        failures += 1
+        print(detail)
     with tempfile.TemporaryDirectory() as tmp:
         for path in sorted(glob.glob(os.path.join(ROOT, "tests", "cases", "*.plain"))):
             total += 1

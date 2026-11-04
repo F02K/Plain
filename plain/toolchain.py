@@ -47,7 +47,7 @@ def compile_source(source, target):
     return compile_program(parse(tokenize(source)), target)
 
 
-def compile_to_python(source):
+def compile_to_python(source, watch=False):
     """Plain source text -> Python source text.
 
     The program is type checked first by the normal compiler, so both backends
@@ -55,7 +55,7 @@ def compile_to_python(source):
     """
     program = parse(tokenize(source))
     compile_program(program, "python")
-    return generate_python(program)
+    return generate_python(program, watch)
 
 
 class ToolError(Exception):

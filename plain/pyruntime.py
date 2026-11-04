@@ -188,6 +188,126 @@ def _run(main):
         sys.exit(1)
 '''
 
+# Added to a program only when the IDE asks to watch values (PLAIN_WATCH=<file>). A background thread
+# writes a snapshot of the changed variables a few times per second, so the program itself hardly notices.
+WATCH_PRELUDE = """\
+import json as _json
+import os as _wos
+import threading as _wthreading
+import time as _wtime
+
+_W = {}
+_T = {}
+_W_STATE = {"dirty": False, "seq": 0}
+_W_PATH = _wos.environ.get("PLAIN_WATCH")
+
+
+def _wfmt(value, depth=0):
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value is None:
+        return "nothing"
+    if isinstance(value, float):
+        return "%.15g" % value
+    if isinstance(value, str):
+        text = value if len(value) <= 30 else value[:27] + "..."
+        return '"' + text + '"'
+    if isinstance(value, list):
+        if depth > 1:
+            return "list of %d" % len(value)
+        shown = ", ".join(_wfmt(v, depth + 1) for v in value[:8])
+        return "[" + shown + (", ... (%d)" % len(value) if len(value) > 8 else "") + "]"
+    slots = getattr(value, "__slots__", None)
+    if slots:
+        if depth > 1:
+            return type(value).__name__[2:] + "(...)"
+        parts = ", ".join("%s: %s" % (n[2:], _wfmt(getattr(value, n), depth + 1)) for n in slots)
+        return type(value).__name__[2:] + "(" + parts + ")"
+    return str(value)
+
+
+def _wnote(entry):
+    kind = entry[0]
+    if kind == "val":
+        return entry[1] + _wfmt(entry[2])
+    if kind == "call":
+        text = entry[1] + "(" + ", ".join(_wfmt(a) for a in entry[2]) + ")"
+        return text if entry[3] is None else text + " -> " + _wfmt(entry[3])
+    if kind == "params":
+        return "takes " + ", ".join("%s = %s" % (n, _wfmt(v)) for n, v in zip(entry[1], entry[2]))
+    text = "(" + ", ".join(_wfmt(a) for a in entry[1]) + ")" if entry[1] else ""
+    return text if entry[2] is None else (text + " -> " if text else "-> ") + _wfmt(entry[2])
+
+
+def _wvar(name, value, line):
+    _W[name] = (value, line)
+    _W_STATE["dirty"] = True
+
+
+def _watch(name, value, line, shown=_wvar):
+    _W[name] = (value, line)
+    _T[line] = ("val", "-> ", value if shown is _wvar else shown)
+    _W_STATE["dirty"] = True
+
+
+def _tr(line, value, prefix="-> "):
+    current = _T.get(line)
+    if current is None or current[0] != "call":
+        _T[line] = ("val", prefix, value)
+        _W_STATE["dirty"] = True
+    return value
+
+
+def _tc(line, name, fn, *args):
+    result = fn(*args)
+    _T[line] = ("call", name, args, result)
+    known = _ACT.get(name)
+    if known:
+        _T[known[0]] = ("params", known[1], args)
+    _W_STATE["dirty"] = True
+    return result
+
+
+def _tg(line, fn, *args):
+    result = fn(*args, line)
+    _T[line] = ("gfx", args, result)
+    _W_STATE["dirty"] = True
+    return result
+
+
+def _wflush():
+    if not _W_PATH or not _W_STATE["dirty"]:
+        return
+    _W_STATE["dirty"] = False
+    _W_STATE["seq"] += 1
+    try:
+        rows = [[name, _wfmt(v), line] for name, (v, line) in list(_W.items())]
+        lines = {}
+        for line, entry in list(_T.items()):
+            text = _wnote(entry)
+            lines[str(line)] = text if len(text) <= 80 else text[:77] + "..."
+        tmp = _W_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            _json.dump({"seq": _W_STATE["seq"], "vars": rows, "lines": lines}, f)
+        _wos.replace(tmp, _W_PATH)
+    except Exception:
+        pass
+
+
+def _wloop():
+    while True:
+        _wtime.sleep(0.15)
+        _wflush()
+
+
+if _W_PATH:
+    _wthreading.Thread(target=_wloop, daemon=True).start()
+    import atexit as _watexit
+    _watexit.register(_wflush)
+"""
+
 # Added to a program only when it opens a window. The assembly backend does the same with Win32.
 GFX_PRELUDE = '''\
 import os as _os

@@ -141,6 +141,12 @@ class Return(Node):
 
 
 @dataclass
+class Group(Node):
+    """Several statements that came from one line of source (e.g. clear window with color red)."""
+    body: List[Node]
+
+
+@dataclass
 class ExprStmt(Node):
     expr: Node
 

@@ -1,5 +1,5 @@
 note: An action can call itself.
-action factorial(n) do
+action factorial takes(n) do
     if n <= 1 then
         return 1
     end

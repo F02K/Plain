@@ -1,0 +1,16 @@
+note: Guess the secret number between 1 and 20.
+let secret be random(1, 20)
+let tries be 0
+let guess be 0
+
+say "I am thinking of a number from 1 to 20."
+while not (guess = secret) do
+    set guess to input number "Your guess?"
+    set tries to tries + 1
+    if guess < secret then
+        say "Too small."
+    else if guess > secret then
+        say "Too big."
+    end
+end
+say "Correct! You needed " + tries + " tries."
