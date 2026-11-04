@@ -158,6 +158,17 @@ class Remove(Node):
 
 
 @dataclass
+class RemoveAt(Node):
+    index: Node
+    target: Node
+
+
+@dataclass
+class Sort(Node):
+    target: Node
+
+
+@dataclass
 class Try(Node):
     body: List[Node]
     error_name: str

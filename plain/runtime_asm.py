@@ -291,6 +291,205 @@ rt_mod:
     leave
     ret
 
+; rt_text_length(text) -> number of characters (UTF-8 aware)
+rt_text_length:
+    xor eax, eax
+    mov rcx, A1
+.loop:
+    movzx edx, byte [rcx]
+    test edx, edx
+    jz .done
+    and edx, 0xC0
+    cmp edx, 0x80
+    je .next
+    inc rax
+.next:
+    inc rcx
+    jmp .loop
+.done:
+    cvtsi2sd xmm0, rax
+    movq rax, xmm0
+    ret
+
+; rt_text_case(text, upper) -> new text; only the letters a-z are changed
+rt_text_case:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 96
+    mov [rbp - 8], A1
+    mov [rbp - 16], A2
+    call strlen
+    lea A1, [rax + 1]
+    call rt_alloc
+    mov [rbp - 24], rax
+    mov rcx, [rbp - 8]
+    mov rdx, rax
+    mov r8, [rbp - 16]
+.loop:
+    movzx eax, byte [rcx]
+    test eax, eax
+    jz .done
+    test r8, r8
+    jz .lower
+    cmp al, 'a'
+    jb .store
+    cmp al, 'z'
+    ja .store
+    sub al, 32
+    jmp .store
+.lower:
+    cmp al, 'A'
+    jb .store
+    cmp al, 'Z'
+    ja .store
+    add al, 32
+.store:
+    mov [rdx], al
+    inc rcx
+    inc rdx
+    jmp .loop
+.done:
+    mov rax, [rbp - 24]
+    leave
+    ret
+
+; rt_text_part(text, start, count, line) -> new text (characters, the first is at 0)
+rt_text_part:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 96
+    mov [rbp - 8], A1
+    mov [rbp - 32], A4
+    movq xmm0, A2
+    cvttsd2si rax, xmm0
+    mov [rbp - 16], rax
+    movq xmm0, A3
+    cvttsd2si rax, xmm0
+    mov [rbp - 24], rax
+    cmp qword [rbp - 16], 0
+    jl .neg
+    cmp qword [rbp - 24], 0
+    jl .neg
+    mov A1, [rbp - 8]
+    call strlen
+    lea A1, [rax + 1]
+    call rt_alloc
+    mov [rbp - 40], rax
+    mov rcx, [rbp - 8]
+    mov rdx, [rbp - 16]
+.skip:
+    test rdx, rdx
+    jz .take
+    movzx eax, byte [rcx]
+    test eax, eax
+    jz .take
+    inc rcx
+.skipcont:
+    movzx eax, byte [rcx]
+    and eax, 0xC0
+    cmp eax, 0x80
+    jne .skipdone
+    inc rcx
+    jmp .skipcont
+.skipdone:
+    dec rdx
+    jmp .skip
+.take:
+    mov r8, [rbp - 40]
+    mov rdx, [rbp - 24]
+.copy:
+    test rdx, rdx
+    jz .fin
+    movzx eax, byte [rcx]
+    test eax, eax
+    jz .fin
+    mov [r8], al
+    inc rcx
+    inc r8
+.copycont:
+    movzx eax, byte [rcx]
+    mov r9d, eax
+    and r9d, 0xC0
+    cmp r9d, 0x80
+    jne .copydone
+    mov [r8], al
+    inc rcx
+    inc r8
+    jmp .copycont
+.copydone:
+    dec rdx
+    jmp .copy
+.fin:
+    mov rax, [rbp - 40]
+    leave
+    ret
+.neg:
+    lea A1, [rel rt_msg_textpos]
+    mov A2, [rbp - 32]
+    call rt_error
+
+; rt_text_contains(text, piece) -> 1 if piece is inside text else 0
+rt_text_contains:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    call strstr
+    test rax, rax
+    setne al
+    movzx eax, al
+    leave
+    ret
+
+; rt_random(low, high, line) -> whole number from low to high (both included)
+rt_random:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    mov [rbp - 8], A3
+    movq xmm0, A1
+    cvttsd2si r8, xmm0
+    movq xmm0, A2
+    cvttsd2si r9, xmm0
+    cmp r8, r9
+    jle .ok
+    lea A1, [rel rt_msg_random]
+    mov A2, [rbp - 8]
+    call rt_error
+.ok:
+    sub r9, r8
+    inc r9
+    mov rax, [rel rt_rng]
+    test rax, rax
+    jnz .step
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    mov rcx, 0x9E3779B97F4A7C15
+    imul rax, rcx
+    or rax, 1
+.step:
+    mov rcx, rax
+    shl rcx, 13
+    xor rax, rcx
+    mov rcx, rax
+    shr rcx, 7
+    xor rax, rcx
+    mov rcx, rax
+    shl rcx, 17
+    xor rax, rcx
+    mov [rel rt_rng], rax
+    test r9, r9
+    jz .raw
+    xor edx, edx
+    div r9
+    mov rax, rdx
+.raw:
+    add rax, r8
+    cvtsi2sd xmm0, rax
+    movq rax, xmm0
+    leave
+    ret
+
 ; rt_list_add(list, value)
 rt_list_add:
     push rbp
@@ -413,6 +612,111 @@ rt_list_remove:
 .end:
     leave
     ret
+
+; rt_list_remove_at(list, index, line)
+rt_list_remove_at:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    cmp A2, [A1]
+    jb .ok
+    mov A2, A3
+    lea A1, [rel rt_msg_index]
+    call rt_error
+.ok:
+    mov rax, A1
+    mov rcx, A2
+    mov rdx, [rax + 16]
+.shift:
+    lea r8, [rcx + 1]
+    cmp r8, [rax]
+    jae .shrink
+    mov r9, [rdx + r8 * 8]
+    mov [rdx + rcx * 8], r9
+    mov rcx, r8
+    jmp .shift
+.shrink:
+    dec qword [rax]
+    leave
+    ret
+
+; rt_list_contains(list, value, is_text) -> 1 if the list has the value else 0
+rt_list_contains:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 96
+    mov [rbp - 8], A1
+    mov [rbp - 16], A2
+    mov [rbp - 24], A3
+    mov qword [rbp - 32], 0
+.loop:
+    mov rax, [rbp - 8]
+    mov rcx, [rbp - 32]
+    cmp rcx, [rax]
+    jae .no
+    mov rdx, [rax + 16]
+    mov rdx, [rdx + rcx * 8]
+    cmp qword [rbp - 24], 0
+    je .raw
+    mov A1, rdx
+    mov A2, [rbp - 16]
+    call strcmp
+    test eax, eax
+    jz .yes
+    jmp .next
+.raw:
+    cmp rdx, [rbp - 16]
+    je .yes
+.next:
+    inc qword [rbp - 32]
+    jmp .loop
+.yes:
+    mov eax, 1
+    leave
+    ret
+.no:
+    xor eax, eax
+    leave
+    ret
+
+; rt_cmp_num / rt_cmp_text: comparison functions for qsort
+rt_cmp_num:
+    movq xmm0, [A1]
+    movq xmm1, [A2]
+    xor eax, eax
+    ucomisd xmm0, xmm1
+    seta al
+    setb dl
+    movzx edx, dl
+    sub eax, edx
+    ret
+
+rt_cmp_text:
+    sub rsp, 40
+    mov A1, [A1]
+    mov A2, [A2]
+    call strcmp
+    add rsp, 40
+    ret
+
+; rt_list_sort(list, is_text): sort the items, smallest first
+rt_list_sort:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    mov rax, A1
+    mov r10, A2
+    mov A1, [rax + 16]
+    mov A2, [rax]
+    mov A3, 8
+    lea A4, [rel rt_cmp_num]
+    test r10, r10
+    jz .go
+    lea A4, [rel rt_cmp_text]
+.go:
+    call qsort
+    leave
+    ret
 """
 
 DATA = r"""
@@ -429,13 +733,17 @@ rt_msg_notnum:   db "That is not a number.", 0
 rt_msg_div0:     db "Cannot divide by zero.", 0
 rt_msg_mod0:     db "Cannot use mod with zero.", 0
 rt_msg_try_deep: db "Too many nested try blocks.", 0
+rt_msg_sqrt:     db "Cannot take the square root of a negative number.", 0
+rt_msg_random:   db "The first number of 'random' must not be bigger than the second.", 0
+rt_msg_textpos:  db "Text positions and lengths cannot be negative.", 0
 """
 
 BSS = r"""
 rt_hcount:     resq 1
 rt_last_error: resq 1
+rt_rng:        resq 1
 rt_handlers:   resq 3 * 1024
 """
 
 EXTERNS_COMMON = ["calloc", "realloc", "printf", "puts", "snprintf", "strlen", "memcpy",
-                  "strcmp", "getchar", "fflush", "exit", "fmod", "strtod"]
+                  "strcmp", "getchar", "fflush", "exit", "fmod", "strtod", "strstr", "qsort"]

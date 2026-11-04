@@ -98,7 +98,7 @@ class Parser:
                 "if": self.parse_if, "repeat": self.parse_repeat, "while": self.parse_while,
                 "for": self.parse_for, "stop": self.parse_stop, "skip": self.parse_skip,
                 "return": self.parse_return, "add": self.parse_add, "remove": self.parse_remove,
-                "try": self.parse_try,
+                "try": self.parse_try, "sort": self.parse_sort,
             }.get(tok.value)
             if tok.value in ("action", "define"):
                 if not top_level:
@@ -239,8 +239,21 @@ class Parser:
         self.end_statement()
         return N.Add(item, target, line=start.line, col=start.col)
 
+    def parse_sort(self):
+        start = self.advance()
+        target = self.parse_expr()
+        self.end_statement()
+        return N.Sort(target, line=start.line, col=start.col)
+
     def parse_remove(self):
         start = self.advance()
+        if self.cur.is_kw("at"):
+            self.advance()
+            index = self.parse_expr()
+            self.expect_kw("from", "Write: remove at <position> from <list>")
+            target = self.parse_expr()
+            self.end_statement()
+            return N.RemoveAt(index, target, line=start.line, col=start.col)
         item = self.parse_expr()
         self.expect_kw("from", "Write: remove <value> from <list>")
         target = self.parse_expr()
@@ -379,7 +392,11 @@ class Parser:
         if tok.kind == "NAME" and self.peek().is_kw("of"):
             self.advance()
             self.advance()
-            obj = self.parse_access()
+            if self.cur.is_sym("-"):
+                minus = self.advance()
+                obj = N.Unary("-", self.parse_access(), line=minus.line, col=minus.col)
+            else:
+                obj = self.parse_access()
             return N.Field(tok.value, obj, line=tok.line, col=tok.col)
         return self.parse_postfix()
 

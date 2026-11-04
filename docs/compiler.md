@@ -52,7 +52,7 @@ messages. The test-suite runs every program on both backends.
 
 1. Window/graphics support (SDL2 or raylib through `extern` declarations).
 2. Standard library: `Math`, `String`, `Window`, `Input`, `Draw`.
-3. More text operations (length, parts of a text, upper case).
+3. Text, math and list helpers are done (see `plain/library.py` and the runtime).
 4. Sample project: a Pong-level 2D game.
 5. Optimizations (keep values in registers, constant folding).
 6. Open design questions: explicit program entry point, multiple return values, inheritance.

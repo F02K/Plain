@@ -16,6 +16,7 @@ from . import nodes as N
 from . import typesys as T
 from .errors import PlainError
 from . import runtime_asm as RT
+from . import library as L
 
 
 class FnCtx:
@@ -148,11 +149,15 @@ class Compiler:
     def collect_definitions(self):
         for stmt in self.program.body:
             if isinstance(stmt, N.DefineStruct):
-                if stmt.name in self.structs or stmt.name in T.PRIMITIVES or stmt.name == "nothing":
+                if stmt.name in self.structs or stmt.name in T.PRIMITIVES or stmt.name == "nothing" \
+                        or stmt.name in L.CALLS:
                     self.error(stmt, f"The type '{stmt.name}' is defined twice or is a built-in name.")
                 self.structs[stmt.name] = stmt
         for stmt in self.program.body:
             if isinstance(stmt, N.ActionDef):
+                if stmt.name in L.CALLS:
+                    self.error(stmt, f"'{stmt.name}' is a built-in helper, so it cannot be used as an action name.",
+                               "Pick another name.")
                 if stmt.name in self.actions or stmt.name in self.structs:
                     self.error(stmt, f"The name '{stmt.name}' is already used by an action or a type.")
                 if len(set(stmt.params)) != len(stmt.params):
@@ -427,6 +432,29 @@ class Compiler:
         self.emit(f"mov A3, {1 if lt[1] == T.TEXT else 0}")
         self.call_rt("rt_list_remove")
 
+    def s_RemoveAt(self, s):
+        lt = self.expr(s.target)
+        if not T.is_list(lt):
+            self.error(s.target, f"'remove at' needs a list, but this is {self.describe(lt)}.")
+        self.push()
+        it = self.expr(s.index)
+        self.expect_number(it, s.index, "A list position")
+        self.emit("movq xmm0, rax")
+        self.emit("cvttsd2si A2, xmm0")
+        self.emit("pop A1")
+        self.fn.depth -= 1
+        self.emit(f"mov A3, {s.line}")
+        self.call_rt("rt_list_remove_at")
+
+    def s_Sort(self, s):
+        lt = self.expr(s.target)
+        if not T.is_list(lt) or lt[1] not in (T.NUMBER, T.TEXT):
+            what = "a list of numbers or text" 
+            self.error(s.target, f"'sort' needs {what}, but this is {self.describe(lt)}.")
+        self.emit("mov A1, rax")
+        self.emit(f"mov A2, {1 if lt[1] == T.TEXT else 0}")
+        self.call_rt("rt_list_sort")
+
     def s_Try(self, s):
         catch, end = self.new_label("catch_"), self.new_label("try_end_")
         self.emit(f"TRY_ENTER {catch}")
@@ -556,9 +584,84 @@ class Compiler:
             self.emit("cvtsi2sd xmm0, rax")
             self.emit("movq rax, xmm0")
             return T.NUMBER
+        if e.name in L.OF and not T.is_struct(ot):
+            return self.builtin_of(e, ot)
         offset, ft = self.field_info(ot, e)
         self.emit(f"mov rax, [rax + {offset}]")
         return ft
+
+    def builtin_of(self, e, ot):
+        """'length of x', 'round of x', ...: the value is already in rax."""
+        want, result = L.OF[e.name]
+        if ot != want:
+            self.error(e, f"'{e.name} of ...' needs {self.describe(want)}, but this is {self.describe(ot)}.")
+        if e.name == "length":
+            self.emit("mov A1, rax")
+            self.call_rt("rt_text_length")
+        elif e.name in ("upper", "lower"):
+            self.emit("mov A1, rax")
+            self.emit(f"mov A2, {1 if e.name == 'upper' else 0}")
+            self.call_rt("rt_text_case")
+        elif e.name == "round":          # half up: floor(x + 0.5)
+            self.emit("movq xmm0, rax")
+            self.emit("mov rcx, 0x3FE0000000000000")
+            self.emit("movq xmm1, rcx")
+            self.emit("addsd xmm0, xmm1")
+            self.emit("roundsd xmm0, xmm0, 9")
+            self.emit("movq rax, xmm0")
+        elif e.name == "abs":
+            self.emit("btr rax, 63")
+        else:  # sqrt
+            ok = self.new_label("sqrt_ok_")
+            self.emit("movq xmm0, rax")
+            self.emit("xorpd xmm1, xmm1")
+            self.emit("ucomisd xmm0, xmm1")
+            self.emit(f"jae {ok}")
+            self.runtime_error("rt_msg_sqrt", e)
+            self.label(ok)
+            self.emit("sqrtsd xmm0, xmm0")
+            self.emit("movq rax, xmm0")
+        return result
+
+    def builtin_call(self, e):
+        """random(a, b), part(text, start, count), ...: values go to the argument registers."""
+        arg_types, result = L.CALLS[e.name]
+        if e.named is not None:
+            self.error(e, f"'{e.name}' takes its values in order, without names.",
+                       f"For example: {L.EXAMPLES[e.name]}")
+        n = len(arg_types)
+        if len(e.args) != n:
+            self.error(e, f"'{e.name}' needs {n} value(s) but you gave {len(e.args)}.",
+                       f"For example: {L.EXAMPLES[e.name]}")
+        types = []
+        for i, (arg, want) in enumerate(zip(e.args, arg_types)):
+            t = self.expr(arg)
+            if e.name == "contains":        # works on text and on lists
+                if i == 0 and T.is_list(t):
+                    want = t
+                elif i == 1 and T.is_list(types[0]):
+                    want = types[0][1]
+            if t != want:
+                self.error(arg, f"'{e.name}' needs {self.describe(want)} here, but this is {self.describe(t)}.",
+                           f"For example: {L.EXAMPLES[e.name]}")
+            types.append(t)
+            self.push()
+        for i in reversed(range(n)):
+            self.emit(f"pop A{i + 1}")
+        self.fn.depth -= n
+        if e.name in L.NEEDS_LINE:
+            self.emit(f"mov A{n + 1}, {e.line}")
+        if e.name in ("min", "max"):
+            self.emit("movq xmm0, A1")
+            self.emit("movq xmm1, A2")
+            self.emit(f"{e.name}sd xmm0, xmm1")
+            self.emit("movq rax, xmm0")
+        elif e.name == "contains" and T.is_list(types[0]):
+            self.emit(f"mov A3, {1 if types[0][1] == T.TEXT else 0}")
+            self.call_rt("rt_list_contains")
+        else:
+            self.call_rt({"random": "rt_random", "part": "rt_text_part", "contains": "rt_text_contains"}[e.name])
+        return result
 
     def x_Index(self, e):
         lt = self.expr(e.obj)
@@ -684,6 +787,11 @@ class Compiler:
         return self.call(e, want_value=True)
 
     def call(self, e, want_value):
+        if e.name in L.CALLS:
+            if not want_value:
+                self.error(e, f"'{e.name}' gives a value, so this line does nothing on its own.",
+                           "Use it inside 'say' or 'let', for example: say " + L.EXAMPLES[e.name])
+            return self.builtin_call(e)
         if e.name in self.structs:
             return self.construct(e)
         if e.name not in self.actions:

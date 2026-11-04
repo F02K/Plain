@@ -2,7 +2,7 @@
 
 A complete description of Plain. New to the language? Start with [Getting started](getting-started.md).
 
-**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Errors - Reserved words
+**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Built-in helpers - Errors - Reserved words
 
 ## Types
 
@@ -121,7 +121,13 @@ remove enemy from enemies      note: removes the first match
 say size of enemies
 say enemies at 0               note: positions start at 0
 set enemies at 0 to other
+remove at 0 from enemies       note: removes the item at that position
+sort scores                    note: smallest first (numbers or text)
+say contains(scores, 10)       note: true if the list has that value
 ```
+
+`sort` works on lists of numbers and lists of text. `contains` also works on text
+(see Built-in helpers). Using a position that does not exist is an error.
 
 ## Output and input
 
@@ -157,6 +163,33 @@ while not ok do
 end
 ```
 
+## Built-in helpers
+
+Helpers with one value are written `name of value`, like fields:
+
+| Helper | Gives | Example |
+| --- | --- | --- |
+| `length of text` | number of characters | `length of "héllo"` is `5` |
+| `upper of text` / `lower of text` | text in capitals / small letters (only a-z change) | `upper of name` |
+| `round of number` | nearest whole number (.5 rounds up) | `round of 2.5` is `3` |
+| `abs of number` | the number without its sign | `abs of -7` is `7` |
+| `sqrt of number` | square root (negative numbers are an error) | `sqrt of 16` is `4` |
+
+`of` binds tighter than the operators, so `round of x / 2` means `(round of x) / 2`.
+Write `round of (x / 2)` to round the result.
+
+Helpers with more values use brackets:
+
+| Helper | Gives | Example |
+| --- | --- | --- |
+| `random(low, high)` | a random whole number from `low` to `high` (both included) | `random(1, 6)` |
+| `min(a, b)` / `max(a, b)` | the smaller / bigger number | `max(health, 0)` |
+| `part(text, start, count)` | `count` characters from position `start` (first is 0) | `part("Hello", 1, 3)` is `ell` |
+| `contains(text, piece)` | `true` if `piece` is inside `text` (also `contains(list, value)`) | `contains(name, "an")` |
+
+These names cannot be used for your own actions or types. A thing may still have a field
+called `length` and so on: `length of box` reads the field when `box` is a thing.
+
 ## Errors
 
 ```
@@ -173,7 +206,7 @@ Without `try`, a runtime error stops the program with the line number and a reas
 ## Reserved words
 
 `let be set to say input if then else end repeat times while do for each in stop skip
-action return define as list of at add remove from try catch and or not mod true
+action return define as list of at add remove from sort try catch and or not mod true
 false nothing` (`note:` starts a comment).
 
 ## Differences from the first draft of the specification

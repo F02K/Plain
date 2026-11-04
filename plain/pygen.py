@@ -4,6 +4,7 @@ Type checking is done by the normal compiler first (see toolchain.py), so a
 program that is rejected for the native target is rejected here too.
 """
 
+from . import library as L
 from . import nodes as N
 from .pyruntime import PRELUDE
 
@@ -122,6 +123,12 @@ class PyGen:
     def s_Remove(self, s, i):
         self.line(i, f"_remove({self.expr(s.target)}, {self.expr(s.item)})")
 
+    def s_RemoveAt(self, s, i):
+        self.line(i, f"_remove_at({self.expr(s.target)}, {self.expr(s.index)}, {s.line})")
+
+    def s_Sort(self, s, i):
+        self.line(i, f"{self.expr(s.target)}.sort()")
+
     def s_Try(self, s, i):
         self.line(i, "try:")
         self.block(s.body, i + 1)
@@ -161,6 +168,8 @@ class PyGen:
         obj = self.expr(e.obj)
         if e.name == "size":
             return f'_size_or_field({obj}, "f_size")'
+        if e.name in L.OF:
+            return f'_of("{e.name}", _{e.name}, {obj}, {e.line})'
         return f"{obj}.f_{e.name}"
 
     def x_Index(self, e):
@@ -179,6 +188,8 @@ class PyGen:
         return f"({l} {op} {r})"
 
     def x_Call(self, e):
+        if e.name in L.CALLS:
+            return f"_{e.name}(" + ", ".join(self.expr(a) for a in e.args) + f", {e.line})"
         if e.named is not None:
             args = ", ".join(f"f_{n}={self.expr(v)}" for n, v in e.named)
             return f"T_{e.name}({args})"

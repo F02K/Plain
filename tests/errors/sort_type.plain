@@ -1,0 +1,2 @@
+let flags be list of boolean
+sort flags

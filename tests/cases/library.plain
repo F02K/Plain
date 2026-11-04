@@ -1,0 +1,63 @@
+note: numbers
+say round of 2.5
+say round of 2.4
+say round of -2.5
+say abs of -7
+say sqrt of 16
+say min(3, 8)
+say max(3, 8)
+say round of 2.6 / 2
+say round of (2.6 / 2)
+
+note: text
+let name be "Plain Language"
+say length of name
+say upper of name
+say lower of name
+say part(name, 0, 5)
+say part(name, 6, 100)
+say part(name, 50, 3)
+say contains(name, "Lang")
+say contains(name, "xyz")
+say length of "héllo"
+say part("héllo", 1, 2)
+say upper of "héllo"
+say length of name + 1
+
+note: things can still have fields with these names
+define Box as
+    length as number
+end
+let box be Box(length: 9)
+say length of box
+
+note: random
+say random(4, 4)
+let ok be true
+repeat 200 times
+    let r be random(1, 6)
+    if r < 1 or r > 6 then
+        set ok to false
+    end
+    if r mod 1 > 0 then
+        set ok to false
+    end
+end
+say ok
+
+note: errors
+try
+    say sqrt of -1
+catch error then
+    say error
+end
+try
+    say random(5, 1)
+catch error then
+    say error
+end
+try
+    say part("abc", -1, 2)
+catch error then
+    say error
+end

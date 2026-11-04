@@ -1,0 +1,2 @@
+'random' needs 2 value(s) but you gave 1.
+For example: random(1, 6)

@@ -1,0 +1,42 @@
+let scores be list of number
+add 30 to scores
+add 10 to scores
+add 20 to scores
+add 10 to scores
+sort scores
+for each s in scores do
+    say s
+end
+
+say contains(scores, 20)
+say contains(scores, 99)
+
+remove at 0 from scores
+say size of scores
+say scores at 0
+
+let names be list of text
+add "pear" to names
+add "apple" to names
+add "fig" to names
+sort names
+for each n in names do
+    say n
+end
+say contains(names, "fig")
+say contains(names, "plum")
+
+let empty be list of number
+sort empty
+say size of empty
+
+try
+    remove at 9 from scores
+catch error then
+    say error
+end
+try
+    remove at -1 from scores
+catch error then
+    say error
+end

@@ -1,0 +1,2 @@
+let items be list of number
+say contains(items, "a")
