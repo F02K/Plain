@@ -133,6 +133,30 @@ let name be input "Your name?"   note: asks, then reads one line of text
 `say` accepts text, numbers and booleans. `input` prints the question, waits for
 the user to type a line, and gives it back as `text` (without the line break).
 
+To read a number, write `input number`:
+
+```
+let age be input number "How old are you?"
+say "Next year you will be " + (age + 1)
+```
+
+If the user types something that is not a number (only digits, `.`, `-`, `+`, `e`
+and spaces are accepted), the program stops with the error `That is not a number.`
+Catch it with `try` to ask again:
+
+```
+let age be 0
+let ok be false
+while not ok do
+    try
+        set age to input number "Your age?"
+        set ok to true
+    catch error then
+        say "Please type a number."
+    end
+end
+```
+
 ## Errors
 
 ```

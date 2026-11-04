@@ -221,6 +221,64 @@ rt_input:
     leave
     ret
 
+; rt_input_number(prompt, line) -> number typed by the user
+; Only digits, + - . e E and spaces are accepted; anything else is an error.
+rt_input_number:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 96
+    mov [rbp - 8], A2
+    call rt_input
+    mov [rbp - 16], rax
+    mov rcx, rax
+.scan:
+    movzx eax, byte [rcx]
+    test eax, eax
+    jz .convert
+    cmp al, ' '
+    je .next
+    cmp al, '+'
+    je .next
+    cmp al, '-'
+    je .next
+    cmp al, '.'
+    je .next
+    cmp al, 'e'
+    je .next
+    cmp al, 'E'
+    je .next
+    cmp al, '0'
+    jb .bad
+    cmp al, '9'
+    ja .bad
+.next:
+    inc rcx
+    jmp .scan
+.convert:
+    mov A1, [rbp - 16]
+    lea A2, [rbp - 24]
+    call strtod
+    movq rax, xmm0
+    mov [rbp - 32], rax
+    mov rdx, [rbp - 24]
+    cmp rdx, [rbp - 16]
+    je .bad
+.trail:
+    cmp byte [rdx], ' '
+    jne .check
+    inc rdx
+    jmp .trail
+.check:
+    cmp byte [rdx], 0
+    jne .bad
+    mov rax, [rbp - 32]
+    leave
+    ret
+.bad:
+    lea A1, [rel rt_msg_notnum]
+    mov A2, [rbp - 8]
+    call rt_error
+
 ; rt_mod(a, b) -> a mod b (numbers)
 rt_mod:
     push rbp
@@ -367,6 +425,7 @@ rt_str_false:    db "false", 0
 rt_str_nothing:  db "nothing", 0
 rt_msg_oom:      db "The computer ran out of memory.", 0
 rt_msg_index:    db "That list position does not exist (the first item is at position 0).", 0
+rt_msg_notnum:   db "That is not a number.", 0
 rt_msg_div0:     db "Cannot divide by zero.", 0
 rt_msg_mod0:     db "Cannot use mod with zero.", 0
 rt_msg_try_deep: db "Too many nested try blocks.", 0
@@ -379,4 +438,4 @@ rt_handlers:   resq 3 * 1024
 """
 
 EXTERNS_COMMON = ["calloc", "realloc", "printf", "puts", "snprintf", "strlen", "memcpy",
-                  "strcmp", "getchar", "fflush", "exit", "fmod"]
+                  "strcmp", "getchar", "fflush", "exit", "fmod", "strtod"]

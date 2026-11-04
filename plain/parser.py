@@ -365,7 +365,13 @@ class Parser:
             return N.Unary("-", self.parse_unary(), line=tok.line, col=tok.col)
         if tok.is_kw("input"):
             self.advance()
-            return N.Input(self.parse_additive(), line=tok.line, col=tok.col)
+            as_number = False
+            nxt = self.peek()
+            if self.cur.kind == "NAME" and self.cur.value == "number" and \
+                    (nxt.kind in ("TEXT", "NAME") or nxt.is_sym("(")):
+                self.advance()
+                as_number = True
+            return N.Input(self.parse_additive(), as_number, line=tok.line, col=tok.col)
         return self.parse_access()
 
     def parse_access(self):

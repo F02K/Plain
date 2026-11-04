@@ -30,21 +30,21 @@ def read(path):
 def run_case(path, tmp):
     name = os.path.splitext(os.path.basename(path))[0]
     source = read(path)
-    exe = os.path.join(tmp, name)
+    exe = os.path.join(tmp, name + (".exe" if sys.platform.startswith("win") else ""))
     try:
         build_executable(compile_source(source, host_target()), exe, host_target())
     except PlainError as err:
         return False, format_error(err, source, os.path.basename(path))
     stdin_path = path[:-6] + ".in"
     stdin = read(stdin_path) if os.path.exists(stdin_path) else ""
-    result = subprocess.run([exe], input=stdin, capture_output=True, text=True, timeout=20)
+    result = subprocess.run([exe], input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=20)
     expected = read(path[:-6] + ".out")
     if result.stdout != expected:
         return False, f"[native] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
     py_path = os.path.join(tmp, name + ".py")
     with open(py_path, "w", encoding="utf-8") as f:
         f.write(compile_to_python(source))
-    result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True, timeout=20)
+    result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True, encoding="utf-8", timeout=20)
     if result.stdout != expected:
         return False, f"[python] expected:\n{expected}\ngot:\n{result.stdout}{result.stderr}"
     return True, ""

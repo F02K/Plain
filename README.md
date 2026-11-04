@@ -58,7 +58,7 @@ git clone https://github.com/F02K/Plain.git && cd Plain
 <summary>Windows</summary>
 
 Install Python, [NASM](https://www.nasm.us/) and [MinGW-w64](https://www.mingw-w64.org/) (gcc), put them on your `PATH`, then clone the repository.
-The Windows target is generated and assembles correctly, but has had less testing than Linux.
+The test-suite runs on Windows in CI (native executables built with NASM and MinGW-w64).
 </details>
 
 Optional: `pip install .` adds a `plain` command. Otherwise use `python3 -m plain`.
@@ -130,8 +130,7 @@ More: [`examples/`](examples/) and the full [language reference](docs/language.m
 
 ## Project status
 
-Plain is an **MVP**. The core language works and is tested on Linux x64.
-Windows x64 output is generated; running it on a real Windows machine is still to be verified.
+Plain is an **MVP**. The core language works and is tested in CI on Linux x64 and Windows x64.
 Graphics, a standard library and more text/number functions are on the [roadmap](docs/compiler.md#roadmap).
 
 ## Repository layout
