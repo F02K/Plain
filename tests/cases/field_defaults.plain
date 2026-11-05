@@ -1,0 +1,16 @@
+note: A field can have a value for when none is given: name as text = "player".
+define Settings as
+    volume as number = 5
+    name as text = "player"
+    loud as boolean = false
+end
+
+let a be Settings(name: "Eve")
+say volume of a
+say name of a
+let b be Settings()
+say name of b
+say loud of b
+set volume of b to 9
+say volume of b
+say volume of a

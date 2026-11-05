@@ -1,0 +1,4 @@
+action add_two takes(a, b) do
+    return a + b
+end
+say add_two(1, a: 2)

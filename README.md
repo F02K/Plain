@@ -40,7 +40,7 @@ say name + " has " + health of hero + " health."
 | **Checked before it runs** | Plain finds type mistakes before the program starts and explains them in plain words. |
 | **Friendly errors** | Messages show the line, point at the problem and suggest a fix. |
 | **Python underneath** | A Plain program is checked and translated to a normal Python file that students can read. It runs everywhere Python runs. |
-| **Modules** | Extras such as windows and drawing are modules: `import window`. A module says in one small file which sentences it adds. |
+| **Modules** | Extras such as windows and drawing are modules: `import window`. A module is a Plain file that lists its types and actions, backed by a Python file. |
 
 ## Install
 
@@ -70,17 +70,16 @@ Windows and drawing are not part of the language itself. A program asks for them
 ```
 import window
 
-open window "My game" with width 480 and height 320
-while window is open do
-    clear window with color black
-    use color orange
-    draw circle at 240, 160 radius 30
-    show window
+let win be Window(title: "My game", width: 480, height: 320)
+while open of win do
+    run clear of win
+    run draw_circle(240, 160, 30, orange) of win
+    run show of win
 end
 ```
 
-Every module lives in `modules/NAME/`: a `NAME.plain` file lists its sentences, a `NAME.py` file does the work.
-See [Modules](docs/modules.md).
+A module is written in Plain like your own files and lives in `modules/NAME/`: a `NAME.plain` file says what it
+offers, a `NAME_impl.py` file does the work. See [Modules](docs/modules.md).
 
 ## A quick tour
 
@@ -140,7 +139,7 @@ Windows and drawing work as a module (see [`examples/ball.plain`](examples/ball.
 
 ```
 plain/       the compiler (lexer, parser, checker, Python writer, CLI)
-modules/     modules such as window (a .plain file with the sentences, a .py file with the code)
+modules/     modules such as window (a .plain file with the types and actions, a .py file with the code)
 examples/    example programs
 tests/       test runner, run-cases, error-cases and the saved output of the examples
 docs/        documentation

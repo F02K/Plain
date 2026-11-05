@@ -1,2 +1,1 @@
-This needs a text here, but it is a number.
-Write: open window "My game" with width 640 and height 480
+The field 'title' holds a text, but this value is a number.

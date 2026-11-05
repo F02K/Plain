@@ -3,7 +3,7 @@
 ```
 source -> lexer -> parser -> checker -> Python writer -> a standalone .py file
                       ^
-                      +-- modules/NAME/NAME.plain  (the sentences of `import NAME`)
+                      +-- modules/NAME/NAME.plain  (what `import NAME` brings in; its Python file goes into the program)
 ```
 
 Plain is Python, made simpler: a Plain program is checked, translated to a normal Python file and run by Python.
@@ -14,7 +14,7 @@ so it runs wherever Python runs.
 | --- | --- |
 | `plain/lexer.py` | text -> tokens |
 | `plain/parser.py`, `plain/nodes.py` | tokens -> syntax tree |
-| `plain/modules.py` | reads `modules/NAME/NAME.plain`: the sentences, types and colors of a module |
+| `plain/modules.py` | finds the modules in `modules/` and reads what their Python files offer |
 | `plain/typesys.py` | the types |
 | `plain/checker.py` | finds mistakes (types, unknown names, wrong number of values) before the program runs |
 | `plain/pygen.py`, `plain/pyruntime.py` | writes the Python program and the helper code that goes into every program |

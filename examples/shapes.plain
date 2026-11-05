@@ -2,28 +2,20 @@ note: Draw a picture. Close the window to stop.
 import window
 
 let sky be Color(red: 120, green: 190, blue: 255)
+let win be Window(title: "My house", width: 480, height: 320, background: sky)
 
-open window "My house" with width 480 and height 320
+while open of win do
+    run clear of win
 
-while window is open do
-    clear window with color sky
-
-    use color yellow
-    draw circle at 410, 60 radius 30
-
-    use color green
-    draw rectangle at 0, 240 size 480 by 80
+    run draw_circle(410, 60, 30, yellow) of win
+    run draw_rectangle(0, 240, 480, 80, green) of win
 
     note: the house
-    use color brown
-    draw rectangle at 140, 150 size 160 by 100
-    use color red
-    draw line from 130, 150 to 220, 90
-    draw line from 220, 90 to 310, 150
-    use color white
-    draw rectangle at 190, 190 size 60 by 60
+    run draw_rectangle(140, 150, 160, 100, brown) of win
+    run draw_line(130, 150, 220, 90, red) of win
+    run draw_line(220, 90, 310, 150, red) of win
+    run draw_rectangle(190, 190, 60, 60, white) of win
 
-    use color black
-    draw text "Home sweet home" at 160, 270
-    show window
+    run draw_text("Home sweet home", 160, 270, black) of win
+    run show of win
 end

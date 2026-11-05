@@ -1,31 +1,26 @@
 note: Hold the mouse button to paint. Keys 1, 2, 3 change the color, C clears the picture.
 import window
 
-let blue_pen be Color(red: 50, green: 100, blue: 230)
-let red_pen be Color(red: 230, green: 50, blue: 50)
-let green_pen be Color(red: 50, green: 180, blue: 70)
-let pen be blue_pen
+let pen be blue
+let win be Window(title: "Paint", width: 640, height: 480, background: white)
+run clear of win
 
-open window "Paint" with width 640 and height 480
-clear window with color white
-
-while window is open do
-    if key "1" is pressed then
-        set pen to blue_pen
+while open of win do
+    if is_down("1") of win then
+        set pen to blue
     end
-    if key "2" is pressed then
-        set pen to red_pen
+    if is_down("2") of win then
+        set pen to red
     end
-    if key "3" is pressed then
-        set pen to green_pen
+    if is_down("3") of win then
+        set pen to green
     end
-    if key "c" is pressed then
-        clear window with color white
+    if is_down("c") of win then
+        run clear of win
     end
 
-    if mouse is down then
-        use color pen
-        draw circle at mouse x, mouse y radius 6
+    if mouse_down of win then
+        run draw_circle(mouse_x of win, mouse_y of win, 6, pen) of win
     end
-    show window
+    run show of win
 end

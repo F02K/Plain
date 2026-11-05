@@ -132,6 +132,11 @@ run heal(hero, 20)
 ```
 
 - Without values write just `action greet do`, and run it with `run greet()`.
+- The thing an action works on can be written after `of`, as its first value: `run heal(20) of hero` is the same as
+  `run heal(hero, 20)`, and `run show of window` is `run show(window)`. It works in expressions too:
+  `if is_down("left") of win then`.
+- Values can be given with their names, in any order, after the plain values: `heal(hero, amount: 20)`,
+  `area(h: 3, w: 4)`. A value cannot be given twice.
 - `run` always means: run the code of an action. A line that runs an action starts with `run`
   (`run heal(hero, 20)`). Inside an expression an action that returns a value needs no `run`:
   `let total be add(1, 2)`.
@@ -158,8 +163,19 @@ say health of hero
 set health of hero to 90
 ```
 
-All fields must be given when creating a thing. Field types: `number`, `text`,
-`boolean`, `list of ...` or another defined type.
+All fields must be given when creating a thing, unless the field has a value for when none is given:
+
+```
+define Settings as
+    volume as number = 5
+    name as text = "player"
+end
+
+let s be Settings(name: "Eve")      note: volume is 5
+let t be Settings()                 note: all defaults
+```
+
+Field types: `number`, `text`, `boolean`, `list of ...` or another defined type.
 
 ## Lists
 
@@ -305,17 +321,17 @@ first lines:
 ```
 import window
 
-open window "My game" with width 640 and height 480
-while window is open do
-    clear window with color black
-    use color orange
-    draw circle at 320, 240 radius 30
-    show window
+let win be Window(title: "My game", width: 640, height: 480)
+while open of win do
+    run clear of win
+    run draw_circle(320, 240, 30, orange) of win
+    run show of win
 end
 ```
 
-The only built-in module so far is `window` (windows, drawing, keys and mouse). Its sentences, the colors and how to
-write your own module are in [Modules](modules.md).
+The only built-in module so far is `window` (windows, drawing, keys and mouse). Its things, actions, the colors and how
+to write your own module are in [Modules](modules.md). A module is a Plain file like your own, so everything below
+about your own files holds for modules too.
 
 **Your own files.** A big program can be split into several files. `import name` brings in the actions and types of
 `name.plain`, which lies in the same folder as your program (the IDE also looks in the project folder):
@@ -345,6 +361,8 @@ say distance(Point(x: 0, y: 0), Point(x: 6, y: 8))      note: 10
 - If the mistake is inside the imported file, the message shows that file and line (the IDE opens it).
 - An imported file may also hold `let ... fixed` values (a library of constants).
 - The imports go in the first lines. A built-in module wins over a file with the same name.
+- The names of a module are used in the same way: a fixed value such as `orange` cannot be used as the name of a
+  variable of your own.
 
 ## Errors
 

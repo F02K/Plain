@@ -1,0 +1,2 @@
+import window
+let win be Window(title: "Game", width: 100)

@@ -1,0 +1,4 @@
+action add_one takes(n) do
+    return n + 1
+end
+say add_one(m: 1)

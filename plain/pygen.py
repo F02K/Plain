@@ -3,6 +3,8 @@
 The checker has already accepted the program (see toolchain.py).
 """
 
+import os
+
 from . import library as L
 from . import nodes as N
 from . import modules as M
@@ -26,9 +28,8 @@ class PyGen:
 
     def generate(self):
         self.out.append(PRELUDE)
-        for name in self.program.imports:
-            self.out.append(f"# ---- module {name} (modules/{name}/{name}.py)")
-            self.out.append(M.load(name).python_source())
+        for ns, path in getattr(self.program, "pyfiles", {}).items():
+            self.python_module(ns, path)
         for stmt in self.program.body:
             if isinstance(stmt, N.DefineStruct):
                 self.struct(stmt)
@@ -47,7 +48,8 @@ class PyGen:
             self.line(0, "")
             self.line(0, "")
         self.line(0, "def _main():")
-        body = [s for s in self.program.body if not isinstance(s, (N.DefineStruct, N.ActionDef))]
+        body = [s for s in self.program.body
+                if not isinstance(s, (N.DefineStruct, N.ActionDef, N.PythonExport, N.PythonBlock))]
         self.block(body, 1)
         self.line(0, "")
         self.line(0, "")
@@ -59,7 +61,23 @@ class PyGen:
 
     # ---- definitions ---------------------------------------------------------
 
+    def python_module(self, ns, path):
+        """The Python code of a module goes into the program as it is, inside a function, so that its names
+        cannot clash with the program. 'ns.name' reaches what it defines."""
+        self.line(0, "")
+        self.line(0, "")
+        self.line(0, f"# ---- Python code of a module ({os.path.basename(path)})")
+        self.line(0, f"def _make{ns}():")
+        for text in M.python_source(path).splitlines():
+            self.out.append(("    " + text) if text.strip() else "")
+        self.line(1, 'return {k: v for k, v in locals().items() if not k.startswith("__")}')
+        self.line(0, "")
+        self.line(0, "")
+        self.line(0, f"{ns} = _Ns(_make{ns}())")
+
     def struct(self, s):
+        if s.py:
+            return self.python_struct(s)
         names = [f"f_{name}" for name, _, _ in s.fields]
         self.line(0, "")
         self.line(0, "")
@@ -68,6 +86,18 @@ class PyGen:
         self.line(1, "def __init__(self, " + ", ".join(names) + "):")
         for n in names:
             self.line(2, f"self.{n} = {n}")
+
+    def python_struct(self, s):
+        """A type that Python builds: a thin class around the Python class, so that field 'x' is Python's attribute x."""
+        base = f"{s.py}.{s.name}"
+        given = [f"f_{name}" for name, _, _ in s.fields if name not in s.readonly]
+        self.line(0, "")
+        self.line(0, "")
+        self.line(0, f"class T_{s.name}({base}):")
+        self.line(1, "def __init__(self, " + ", ".join(given) + "):")
+        self.line(2, f"{base}.__init__(self" + "".join(", " + g for g in given) + ")")
+        for name, _, _ in s.fields:
+            self.line(1, f'f_{name} = _alias("{name}"' + (", True)" if name in s.readonly else ")"))
 
     def action(self, a):
         self.line(0, "")
@@ -267,18 +297,20 @@ class PyGen:
         return f"({l} {op} {r})"
 
     def x_Call(self, e):
-        if e.module:       # a sentence of a module: its Python function gets the line number last
+        if e.py is not None:       # an action of a module: its Python function gets the line number last
+            fn = f"{e.py.ns}.{e.name}"
             if self.watch:
-                return f"_tg({e.line}, {e.name}" + "".join(", " + self.expr(a) for a in e.args) + ")"
-            return f"{e.name}(" + ", ".join([self.expr(a) for a in e.args] + [str(e.line)]) + ")"
+                return f"_tg({e.line}, {fn}" + "".join(", " + self.expr(a) for a in e.bound) + ")"
+            return f"{fn}(" + ", ".join([self.expr(a) for a in e.bound] + [str(e.line)]) + ")"
         if e.name in L.CALLS:
             return f"_{e.name}(" + ", ".join([self.expr(a) for a in e.args] + [str(e.line)]) + ")"
-        if e.named is not None:
+        if e.ctor:
             args = ", ".join(f"f_{n}={self.expr(v)}" for n, v in e.named)
             return f"T_{e.name}({args})"
+        values = e.bound if e.bound is not None else e.args
         if self.watch:
-            return f'_tc({e.line}, "{e.name}", a_{e.name}' + "".join(", " + self.expr(a) for a in e.args) + ")"
-        return f"a_{e.name}(" + ", ".join(self.expr(a) for a in e.args) + ")"
+            return f'_tc({e.line}, "{e.name}", a_{e.name}' + "".join(", " + self.expr(a) for a in values) + ")"
+        return f"a_{e.name}(" + ", ".join(self.expr(a) for a in values) + ")"
 
 
 def generate_python(program, watch=False):

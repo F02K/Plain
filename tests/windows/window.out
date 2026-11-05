@@ -1,5 +1,8 @@
-5
+Test
+320
+200
 true
+5
 false
 false
 false
@@ -8,5 +11,6 @@ true
 false
 I do not know that key. Use left, right, up, down, space, enter, escape, shift, ctrl, tab, backspace, a-z or 0-9.
 A window is already open.
+The size of a window cannot be changed after it is opened.
 false
 done

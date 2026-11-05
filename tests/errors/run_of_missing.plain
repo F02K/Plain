@@ -1,0 +1,5 @@
+action heal takes(hero, amount) do
+    set amount to 1
+end
+let h be 5
+run heal of h

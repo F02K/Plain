@@ -2,18 +2,20 @@ note: Colors are checked without showing anything (PLAIN_HEADLESS).
 import window
 
 let sky be Color(red: 20, green: 24, blue: 40)
-open window "Colors" with width 200 and height 100
-clear window with color sky
-use color orange
-draw circle at 50, 50 radius 10
-use color sky
-draw rectangle at 0, 0 size 5 by 5
-clear window with color black
+let win be Window(title: "Colors", width: 200, height: 100, background: sky)
+say red of background of win
+say red of color of win
+run clear of win
+set color of win to orange
+run draw_circle(50, 50, 10) of win
+run draw_rectangle(0, 0, 5, 5, sky) of win
+set background of win to black
+run clear of win
 set green of sky to 99
-use color sky
 say red of sky + green of sky + blue of sky
 let r be 10
-use color r, r * 2, 30
-show window
-close window
+run draw_circle(10, 10, 5, Color(red: r, green: r * 2, blue: 30)) of win
+say green of orange
+run show of win
+run close of win
 say "ok"

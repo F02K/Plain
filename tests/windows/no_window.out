@@ -1,4 +1,3 @@
-Open a window first, for example: open window "My game" with width 640 and height 480.
-Open a window first, for example: open window "My game" with width 640 and height 480.
+The window size must be between 1 and 4000.
 The window size must be between 1 and 4000.
 ok

@@ -1,41 +1,48 @@
 note: Windows are hidden in the tests (PLAIN_HEADLESS), so this only checks the logic.
 import window
 
-open window "Test" with width 320 and height 200
-use color 255, 0, 0
-clear window
-use color 0, 0, 255
-draw rectangle at 10, 10 size 100 by 50
-draw circle at 200, 100 radius 30
-draw line from 0, 0 to 320, 200
-draw text "Hello ä" at 10, 120
-use color 300, -5, 0.5
+let win be Window(title: "Test", width: 320, height: 200)
+say title of win
+say width of win
+say height of win
+say open of win
+set color of win to red
+run clear of win
+run draw_rectangle(10, 10, 100, 50, blue) of win
+run draw_circle(200, 100, 30) of win
+run draw_circle(x: 20, radius: 5, y: 40) of win
+run draw_line(0, 0, 320, 200) of win
+run draw_text("Hello ä", 10, 120) of win
 let frames be 0
-while window is open and frames < 5 do
-    show window
+while open of win and frames < 5 do
+    run show of win
     set frames to frames + 1
 end
 say frames
-say window is open
-say key "a" is pressed
-say key "left" is pressed
-say key "space" is pressed
-say mouse x >= -1000
-say mouse y < 100000
-say mouse is down
+say is_down("a") of win
+say is_down("left") of win
+say is_down("space") of win
+say mouse_x of win >= -1000
+say mouse_y of win < 100000
+say mouse_down of win
 try
-    say key "banana" is pressed
+    say is_down("banana") of win
 catch error then
     say error
 end
 try
-    open window "Second" with width 100 and height 100
+    let second be Window(title: "Second", width: 100, height: 100)
 catch error then
     say error
 end
-close window
-say window is open
+try
+    set width of win to 500
+catch error then
+    say error
+end
+run close of win
+say open of win
 note: drawing after the window is closed is allowed and does nothing visible
-draw rectangle at 0, 0 size 10 by 10
-show window
+run draw_rectangle(0, 0, 10, 10) of win
+run show of win
 say "done"

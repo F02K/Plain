@@ -287,6 +287,18 @@ def _input_number(prompt, line):
 _FINISHERS = []     # modules add a function here that runs after the program ends (see modules/window)
 
 
+class _Ns:
+    """The Python code of a module: its names are reached as ns.name."""
+
+    def __init__(self, names):
+        self.__dict__.update(names)
+
+
+def _alias(name, readonly=False):
+    """A field of a type that Python builds: it reads (and writes) the attribute with the same name."""
+    return property(lambda self: getattr(self, name), None if readonly else lambda self, value: setattr(self, name, value))
+
+
 def _finish():
     """Runs after the program ends (a window stays open until it is closed)."""
     for finisher in _FINISHERS:

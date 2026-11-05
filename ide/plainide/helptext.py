@@ -25,14 +25,16 @@ Text helpers     length of t   upper of t   lower of t   trim of t
                  number of "42"             text of 42
 Number helpers   round of x    abs of x     sqrt of x
                  min(a, b)     max(a, b)    random(1, 6)
-Windows          open window "Title" with width 640 and height 480
-                 while window is open do ... show window ... end     close window
-                 use color orange           use color 255, 128, 0    clear window with color black
-                 draw rectangle at x, y size w by h      draw circle at x, y radius r
-                 draw line from x1, y1 to x2, y2         draw text "hi" at x, y
-                 key "left" is pressed      mouse x   mouse y   mouse is down
+Windows          import window     let win be Window(title: "Game", width: 640, height: 480)
+                 while open of win do ... run show of win ... end     run close of win
+                 run clear of win           set color of win to orange    set background of win to black
+                 run draw_rectangle(x, y, width, height) of win          run draw_circle(x, y, radius) of win
+                 run draw_line(x1, y1, x2, y2) of win                    run draw_text("hi", x, y) of win
+                 is_down("left") of win     mouse_x of win   mouse_y of win   mouse_down of win
+                 a color as last value:     run draw_circle(10, 10, 5, red) of win
 Colors           red green blue yellow orange purple pink brown gray white black
-                 let sky be Color(red: 20, green: 24, blue: 40)    use color sky
+                 let sky be Color(red: 20, green: 24, blue: 40)    set background of win to sky
+Actions          run heal(20) of hero   is the same as   run heal(hero, 20)       name: value  also works: heal(amount: 20)
 Waiting, files   wait 2 seconds                  read_file("a.txt")    file_exists("a.txt")
                  run write_file("a.txt", "text")   run append_file("a.txt", "more")
 Own files        import lib   (brings in the actions and types of lib.plain next to your program)

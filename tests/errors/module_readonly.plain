@@ -1,0 +1,3 @@
+import window
+let win be Window(title: "Game", width: 100, height: 100)
+set open of win to false

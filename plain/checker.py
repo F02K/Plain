@@ -5,8 +5,11 @@ for each combination of argument types it is called with (like a template). Noth
 time, so a program that passes the checker cannot mix up numbers, text and lists.
 """
 
+import copy
+import dataclasses
 import difflib
 import os
+import re
 
 from . import library as L
 from . import modules as M
@@ -33,11 +36,26 @@ class Instance:
         self.ret_line = None
 
 
+class PyInfo:
+    """An action or question that a module gets from Python (a line of a 'from python' block)."""
+
+    def __init__(self, node, ns, receiver, recv_type, params):
+        self.node = node
+        self.ns = ns                    # the name of the namespace that holds the module's Python code
+        self.receiver = receiver        # the name after 'of', or None
+        self.recv_type = recv_type
+        self.params = params
+        self.gives = node.gives if node.gives is not None else T.NOTHING
+
+
 class Checker:
     def __init__(self, program):
         self.program = program
         self.structs = {}
         self.actions = {}
+        self.pyactions = {}         # name -> PyInfo: what the modules get from Python
+        self.exports = {}           # (file, short name) -> (type name, node): the types that Python builds
+        program.pyfiles = {}        # namespace -> path of the Python file, for the Python writer
         self.instances = {}
         self.fn = None
         self.cur_file = None        # the file of the definition that is being looked at
@@ -80,6 +98,7 @@ class Checker:
             return self.globals[name]
         known = [n for sc in self.fn.scopes for n in sc]
         close = difflib.get_close_matches(name, known, n=1)
+        self.not_imported(name, node)
         if not self.fn.is_main and name in self.main_only:
             hint = (f"'{name}' is fixed, but actions only know fixed values made of plain numbers, text and "
                     "true/false (or calculated from those). Pass it in as a parameter.")
@@ -91,13 +110,20 @@ class Checker:
             hint = f"Create it first with: let {name} be ..."
         self.error(node, f"I don't know a variable called '{name}'.", hint)
 
+    def not_imported(self, name, node):
+        """A name that a module offers, used without 'import': say which line is missing."""
+        module = M.provided_names().get(name)
+        if module:
+            self.error(node, f"'{name}' belongs to the module '{module}', which is not imported.",
+                       f"Add this line at the very top of your program:  import {module}")
+
     # ---- program -------------------------------------------------------------
 
     def check(self):
         self.collect_definitions()
         self.fn = FnCtx()
         for stmt in self.program.body:
-            if not isinstance(stmt, (N.DefineStruct, N.ActionDef)):
+            if not isinstance(stmt, (N.DefineStruct, N.ActionDef, N.PythonExport, N.PythonBlock)):
                 self.statement(stmt)
         self.check_unused_actions()
 
@@ -118,7 +144,22 @@ class Checker:
                                self.first_definition(stmt.name))
                 self.structs[stmt.name] = stmt
         for stmt in self.program.body:
+            if isinstance(stmt, N.PythonExport):
+                self.collect_export(stmt)
+        for stmt in self.program.body:
+            if isinstance(stmt, N.PythonBlock):
+                self.collect_block(stmt)
+        self.cur_file = None
+        for sd in self.structs.values():
+            if sd.readonly and sd.py is None:
+                self.cur_file = sd.file
+                self.error(sd, f"The type '{sd.name}' has read-only fields, so Python has to build it.",
+                           "Only a type that a module gives to Python (export ...) can have 'readonly' fields.")
+        self.cur_file = None
+        for stmt in self.program.body:
             if isinstance(stmt, N.ActionDef):
+                if stmt.name in self.pyactions:
+                    self.error(stmt, f"The name '{stmt.name}' is already used by an action of a module.")
                 if stmt.name in L.CALLS:
                     self.error(stmt, f"'{stmt.name}' is a built-in helper, so it cannot be used as an action name.",
                                "Pick another name.")
@@ -141,6 +182,69 @@ class Checker:
             sd.layout = fields
         self.cur_file = None
         self.collect_constants()
+
+    def python_file(self, node, pyfile):
+        """The path of a module's Python file and the name of the namespace that holds its code."""
+        base = os.path.dirname(node.file) if node.file else ""
+        path = os.path.join(base, pyfile if pyfile.endswith(".py") else pyfile + ".py")
+        stem = lambda text: re.sub(r"\W", "_", os.path.splitext(os.path.basename(text))[0])
+        ns = f"_m_{stem(node.file or 'main')}_{stem(pyfile)}"
+        self.program.pyfiles[ns] = path
+        return path, ns
+
+    def collect_export(self, stmt):
+        self.cur_file = stmt.file
+        if not stmt.file:
+            self.error(stmt, "'export' can only be used in the .plain file of a module.")
+        sd = self.structs.get(stmt.type_name)
+        if sd is None or sd.file != stmt.file:
+            self.error(stmt, f"I don't know a type called '{stmt.type_name}' in this file.",
+                       f"Define it above this line:  define {stmt.type_name} as ... end")
+        key = (stmt.file, stmt.alias)
+        if key in self.exports:
+            self.error(stmt, f"The name '{stmt.alias}' is used twice in export lines.")
+        path, ns = self.python_file(stmt, stmt.pyfile)
+        api = M.python_api(path)
+        if api is None:
+            self.error(stmt, f"I cannot read the Python file '{stmt.pyfile}' (next to {os.path.basename(stmt.file)}).")
+        if api.get(stmt.type_name, (None,))[0] != "class":
+            self.error(stmt, f"The Python file '{stmt.pyfile}' has no class called '{stmt.type_name}'.",
+                       f"Python builds the type, so it needs:  class {stmt.type_name}:")
+        sd.py = ns
+        self.exports[key] = (stmt.type_name, stmt)
+
+    def collect_block(self, stmt):
+        self.cur_file = stmt.file
+        if not stmt.file:
+            self.error(stmt, "'from python' can only be used in the .plain file of a module.")
+        path, ns = self.python_file(stmt, stmt.pyfile)
+        api = M.python_api(path)
+        if api is None:
+            self.error(stmt, f"I cannot read the Python file '{stmt.pyfile}' (next to {os.path.basename(stmt.file)}).")
+        for a in stmt.actions:
+            if a.name in L.CALLS or a.name in self.structs or a.name in self.pyactions:
+                self.error(a, f"The name '{a.name}' is a built-in helper, a type or already an action of a module.",
+                           self.first_definition(a.name))
+            recv_type = None
+            if a.receiver:
+                key = (stmt.file, a.receiver)
+                if key not in self.exports:
+                    self.error(a, f"'{a.receiver}' is not a thing that this file gives to Python.",
+                               f'Write this first:  export Type as {a.receiver} to python "{stmt.pyfile}"')
+                recv_type = T.struct(self.exports[key][0])
+            for param in a.params:
+                self.check_type(param.type, a)
+            known = api.get(a.name)
+            if known is None or known[0] != "function":
+                self.error(a, f"The Python file '{stmt.pyfile}' has no function called '{a.name}'.",
+                           f"It needs:  def {a.name}(...)")
+            given = (1 if a.receiver else 0) + len(a.params) + 1        # the thing, the values, the line number
+            _kind, fewest, most = known
+            if not fewest <= given <= most:
+                self.error(a, f"In {stmt.pyfile} the function '{a.name}' takes {fewest if fewest == most else f'{fewest} to {most}'} "
+                              f"value(s), but Plain gives it {given}: " +
+                              ", ".join(([a.receiver] if a.receiver else []) + [p.name for p in a.params] + ["the line number"]) + ".")
+            self.pyactions[a.name] = PyInfo(a, ns, a.receiver, recv_type, a.params)
 
     def collect_constants(self):
         """Top-level 'let ... fixed' lines with a plain value (numbers, text, true/false, other fixed values and
@@ -172,6 +276,8 @@ class Checker:
             return self.is_constant(node.left) and self.is_constant(node.right)
         if isinstance(node, N.Var):
             return node.name in self.globals
+        if isinstance(node, N.Call) and node.name in self.structs and not node.args and node.named is not None:
+            return all(self.is_constant(value) for _name, value in node.named)      # Color(red: 1, green: 2, blue: 3)
         return False
 
     def is_fixed(self, name):
@@ -228,7 +334,11 @@ class Checker:
             vt = self.lookup(target.name, target)
             self.expect_type(vt, self.expr(s.value), s.value, f"the variable '{target.name}'")
         elif isinstance(target, N.Field):
-            ft = self.field_type(self.expr(target.obj), target)
+            ot = self.expr(target.obj)
+            ft = self.field_type(ot, target)
+            if T.is_struct(ot) and target.name in self.structs[ot[1]].readonly:
+                self.error(target, f"'{target.name}' of a {ot[1]} can only be read, not changed.",
+                           "Python keeps this value up to date, so there is nothing to set.")
             self.expect_type(ft, self.expr(s.value), s.value, f"the field '{target.name}'")
         else:
             lt = self.expr(target.obj)
@@ -500,8 +610,6 @@ class Checker:
     # ---- calls ---------------------------------------------------------------
 
     def call(self, e, want_value):
-        if e.module:
-            return self.module_call(e)
         if e.name in L.CALLS:
             if not want_value and L.CALLS[e.name][1] != T.NOTHING:
                 self.error(e, f"'{e.name}' gives a value, so this line does nothing on its own.",
@@ -509,20 +617,18 @@ class Checker:
             return self.builtin_call(e)
         if e.name in self.structs:
             return self.construct(e)
+        if e.name in self.pyactions:
+            return self.py_call(e, want_value)
         if e.name not in self.actions:
-            close = difflib.get_close_matches(e.name, list(self.actions) + list(self.structs), n=1)
+            self.not_imported(e.name, e)
+            close = difflib.get_close_matches(e.name, list(self.actions) + list(self.pyactions) + list(self.structs), n=1)
             hint = f"Did you mean '{close[0]}'?" if close else \
                 f"Define it first with: action {e.name} takes(...) do ... end"
             self.error(e, f"I don't know an action or type called '{e.name}'.", hint)
-        if e.named is not None:
-            self.error(e, f"'{e.name}' is an action. Give its values in order, without names.",
-                       f"For example: {e.name}(" + ", ".join(self.actions[e.name].params) + ")")
         action = self.actions[e.name]
-        if len(e.args) != len(action.params):
-            self.error(e, f"'{e.name}' needs {len(action.params)} value(s) "
-                          f"({', '.join(action.params) or 'none'}) but you gave {len(e.args)}.")
+        e.bound = self.bind_arguments(e, action.params)
         types = []
-        for arg in e.args:
+        for arg in e.bound:
             t = self.expr(arg)
             if t == T.NOTHING:
                 self.error(arg, "This gives no value, so it cannot be passed to an action.")
@@ -536,14 +642,81 @@ class Checker:
             return T.NOTHING
         return inst.ret
 
-    def module_call(self, e):
-        pattern = M.pattern_for(e.module, e.name)
-        for arg, want in zip(e.args, pattern.arg_types()):
+    def bind_arguments(self, e, names, default_for=None):
+        """The values of a call in the order of the parameters: plain values first, then 'name: value' pairs;
+        default_for(index, values) gives the value of a parameter that was left out (or None)."""
+        named = e.named or []
+        if len(e.args) > len(names):
+            self.error(e, f"'{e.name}' needs {len(names)} value(s) ({', '.join(names) or 'none'}) "
+                          f"but you gave {len(e.args)}.")
+        slots = list(e.args) + [None] * (len(names) - len(e.args))
+        for fname, fexpr in named:
+            if fname not in names:
+                self.error(fexpr, f"'{e.name}' has no value called '{fname}'.", "Its values are: " + ", ".join(names))
+            i = names.index(fname)
+            if slots[i] is not None:
+                self.error(fexpr, f"The value '{fname}' is given twice.")
+            slots[i] = fexpr
+        missing = []
+        for i, name in enumerate(names):
+            if slots[i] is None and default_for is not None:
+                slots[i] = default_for(i, slots)
+            if slots[i] is None:
+                missing.append(name)
+        if missing:
+            if not named and default_for is None:
+                self.error(e, f"'{e.name}' needs {len(names)} value(s) ({', '.join(names) or 'none'}) "
+                              f"but you gave {len(e.args)}.")
+            self.error(e, f"'{e.name}' needs a value for: {', '.join(missing)}.")
+        return slots
+
+    def substitute(self, node, name, replacement):
+        """A copy of an expression in which the variable 'name' is replaced by another expression."""
+        if isinstance(node, N.Var) and node.name == name:
+            return copy.deepcopy(replacement)
+        if isinstance(node, N.Node):
+            clone = copy.copy(node)
+            for f in dataclasses.fields(node):
+                setattr(clone, f.name, self.substitute(getattr(node, f.name), name, replacement))
+            return clone
+        if isinstance(node, list):
+            return [self.substitute(item, name, replacement) for item in node]
+        if isinstance(node, tuple):
+            return tuple(self.substitute(item, name, replacement) for item in node)
+        return node
+
+    def py_call(self, e, want_value):
+        info = self.pyactions[e.name]
+        names = ([info.receiver] if info.receiver else []) + [p.name for p in info.params]
+        wants = ([info.recv_type] if info.receiver else []) + [p.type for p in info.params]
+        offset = 1 if info.receiver else 0
+
+        def default_for(i, slots):
+            if i < offset or (info.receiver and slots[0] is None):
+                return None
+            default = info.params[i - offset].default
+            if default is None:
+                return None
+            return self.substitute(default, info.receiver, slots[0]) if info.receiver else copy.deepcopy(default)
+
+        e.bound = self.bind_arguments(e, names, default_for)
+        e.py = info
+        for i, (arg, want) in enumerate(zip(e.bound, wants)):
             t = self.expr(arg)
+            if t == T.NOTHING:
+                self.error(arg, "This gives no value, so it cannot be passed to an action.")
             if not self.same(want, t):
-                self.error(arg, f"This needs {self.describe(want)} here, but it is {self.describe(t)}.",
-                           "Write: " + pattern.example())
-        return pattern.result_type()
+                if i < offset:
+                    self.error(arg, f"'{e.name}' works on {self.describe(want)}, but this is {self.describe(t)}.")
+                self.error(arg, f"'{e.name}' needs {self.describe(want)} for '{names[i]}', "
+                                f"but this is {self.describe(t)}.")
+        if info.gives == T.NOTHING:
+            if want_value:
+                self.error(e, f"'{e.name}' gives no value, so it cannot be used here.")
+        elif not want_value:
+            self.error(e, f"'{e.name}' gives a value, so this line does nothing on its own.",
+                       "Use it inside 'say', 'let' or 'if'.")
+        return info.gives
 
     def builtin_call(self, e):
         arg_types, result = L.CALLS[e.name]
@@ -610,21 +783,30 @@ class Checker:
         return False
 
     def construct(self, e):
-        layout = self.structs[e.name].layout
-        if e.named is None:
+        sd = self.structs[e.name]
+        layout = sd.layout
+        if e.args:
             self.error(e, f"Create a '{e.name}' with named values.",
                        f"For example: {e.name}(" + ", ".join(f"{f}: ..." for f in layout) + ")")
+        named = e.named if e.named is not None else []
         given = {}
-        for fname, fexpr in e.named:
+        for fname, fexpr in named:
             if fname not in layout:
                 self.error(fexpr, f"'{e.name}' has no field called '{fname}'.", "Its fields are: " + ", ".join(layout))
             if fname in given:
                 self.error(fexpr, f"The field '{fname}' is given twice.")
+            if fname in sd.readonly:
+                self.error(fexpr, f"'{fname}' of a {e.name} can only be read, so it cannot be given here.")
             given[fname] = fexpr
-        missing = [f for f in layout if f not in given]
+        missing = [f for f in layout if f not in given and f not in sd.defaults and f not in sd.readonly]
         if missing:
             self.error(e, f"Missing value(s) for: {', '.join(missing)}.")
-        for fname, fexpr in e.named:
+        for fname in layout:                    # a field that was left out gets its default value
+            if fname not in given and fname in sd.defaults:
+                named = named + [(fname, copy.deepcopy(sd.defaults[fname]))]
+        e.named = named
+        e.ctor = True
+        for fname, fexpr in named:
             self.expect_type(layout[fname], self.expr(fexpr), fexpr, f"the field '{fname}'")
         return T.struct(e.name)
 

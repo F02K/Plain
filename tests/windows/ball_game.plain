@@ -2,7 +2,7 @@ note: A small ball game. Move the paddle with the left and right arrow keys.
 note: Close the window to stop.
 import window
 
-open window "Plain Ball" with width 480 and height 320
+let win be Window(title: "Plain Ball", width: 480, height: 320, background: Color(red: 20, green: 24, blue: 40))
 
 let ball_x be 240
 let ball_y be 100
@@ -13,12 +13,12 @@ let score be 0
 let lives be 3
 
 let frames be 0
-while window is open and frames < 200 do
+while open of win and frames < 200 do
     note: read the keys
-    if key "left" is pressed then
+    if is_down("left") of win then
         set paddle to max(0, paddle - 6)
     end
-    if key "right" is pressed then
+    if is_down("right") of win then
         set paddle to min(400, paddle + 6)
     end
 
@@ -48,15 +48,11 @@ while window is open and frames < 200 do
     end
 
     note: draw everything
-    use color 20, 24, 40
-    clear window
-    use color 240, 240, 240
-    draw rectangle at paddle, 300 size 80 by 10
-    use color 255, 170, 0
-    draw circle at ball_x, ball_y radius 8
-    use color 255, 255, 255
-    draw text "Score: " + score + "   Lives: " + lives at 10, 8
-    show window
+    run clear of win
+    run draw_rectangle(paddle, 300, 80, 10, Color(red: 240, green: 240, blue: 240)) of win
+    run draw_circle(ball_x, ball_y, 8, orange) of win
+    run draw_text("Score: " + score + "   Lives: " + lives, 10, 8, white) of win
+    run show of win
     set frames to frames + 1
 end
 say score

@@ -69,8 +69,11 @@ class Call(Node):
     args: List[Node] = field(default_factory=list)
     # For constructors such as Player(x: 1): list of (field name, expression).
     named: Optional[List[Tuple[str, Node]]] = None
-    # For a sentence of a module (open window ...): the module's name. `name` is then the Python function.
-    module: Optional[str] = None
+    # Filled in by the checker: the values in the order of the action's parameters (named values and
+    # defaults put in place), and the Python function when the action comes from a module.
+    bound: Optional[List[Node]] = None
+    py: Any = None
+    ctor: bool = False          # a thing is being made: Player(x: 1)
 
 
 @dataclass
@@ -209,9 +212,44 @@ class ActionDef(Node):
 class DefineStruct(Node):
     name: str
     fields: List[Tuple[str, Any, int]]  # (field name, type, line)
+    defaults: dict = field(default_factory=dict)        # field name -> expression ('color as Color = black')
+    readonly: set = field(default_factory=set)          # fields that only Python can change
+    py: Any = None              # set by the checker for a type that a module gives to Python (see PythonExport)
+
+
+@dataclass
+class PyParam:
+    name: str
+    type: Any
+    default: Optional[Node] = None
+
+
+@dataclass
+class PyAction(Node):
+    """One line of a 'from python' block: an action or question that Python provides."""
+    name: str
+    params: List[PyParam]
+    receiver: Optional[str]         # the name after 'of' (see PythonExport), or None
+    gives: Any                      # the type of the answer, None for an action
+    question: bool = False
+
+
+@dataclass
+class PythonExport(Node):
+    """export Window as window to python "window_impl": the type is made by the Python file."""
+    type_name: str
+    alias: str
+    pyfile: str
+
+
+@dataclass
+class PythonBlock(Node):
+    """from python "window_impl" ... end: the actions and questions that Python provides."""
+    pyfile: str
+    actions: List[PyAction]
 
 
 @dataclass
 class Program(Node):
     body: List[Node]
-    imports: List[str] = field(default_factory=list)
+    imports: List[str] = field(default_factory=list)     # the modules the program uses (their names)

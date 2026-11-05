@@ -15,11 +15,11 @@ HELPER_CALLS = set(CALLS)
 HELPERS = HELPER_CALLS | (set(OF) - TYPE_WORDS)
 OF_HELPERS = set(OF)
 
-# The sentences of the modules are highlighted as a whole, so that names like 'size' stay ordinary names.
-PHRASES = re.compile(MODULES.highlight_regex() + r'|\btakes(?=\s*\()|\bkey(?= (?:"[^"\n]*"|\w+) is pressed)'
-                     r'|\b(?:number|text)(?=\s+of\b)|\bstep(?=\s+-?[\w.]+\s+do\b)'
-                     r'|\bfixed(?=[ \t]*(?:\r?\n|\Z))')
-COLOR_WORD = re.compile(r"(?<=color )(?:" + "|".join(MODULES.color_names()) + r")\b")
+# Words that are only special in some places, so that names like 'step' stay ordinary names elsewhere.
+PHRASES = re.compile(r'\btakes(?=\s*\()|\b(?:number|text)(?=\s+of\b)|\bstep(?=\s+-?[\w.]+\s+do\b)'
+                     r'|\b(?:fixed|readonly)(?=[ \t]*(?:\r?\n|\Z))')
+# The color names of the modules (orange, white, ...) are colored like helpers, but not as a field name (red of sky).
+COLOR_WORD = re.compile(r"(?<!of )\b(?:" + "|".join(MODULES.color_names()) + r")\b(?!\s*:)")
 
 # Words that expand into a whole block when you accept them in the completion list.
 # {i} is the indentation of the current line, | marks where the cursor ends up.
@@ -32,10 +32,6 @@ SNIPPETS = {
     "define": "define |Name as\n{i}    field as number\n{i}end",
     "try": "try\n{i}    |\n{i}catch error then\n{i}    \n{i}end",
 }
-
-for _module in MODULES.load_all():      # 'open', 'draw', 'use', ... fill in a whole sentence
-    for _pattern in _module.commands():
-        SNIPPETS.setdefault(_pattern.parts[0].word, _pattern.snippet())
 
 # The words of a project file (see projects.py): 'name Space Game', 'main main.plain', 'output Space_Game'
 PROJECT_KEYS = re.compile(r"^(name|main|output)\b", re.M)

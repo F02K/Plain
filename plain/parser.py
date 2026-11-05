@@ -1,6 +1,5 @@
 """Parser: turns tokens into a syntax tree (recursive descent)."""
 
-import copy
 import difflib
 import os
 
@@ -19,12 +18,11 @@ def word(tok, name):
 
 
 class Parser:
-    def __init__(self, tokens, base_dir=None, shared=None, chain=()):
+    def __init__(self, tokens, base_dir=None, shared=None, chain=(), module_mode=False):
         self.toks = tokens
         self.i = 0
-        self.no_at = 0  # > 0 while 'at' must not be read as a list index (draw text ... at x, y)
-        self.modules = []   # the modules this file imported (their sentences can be used here)
-        self.all_modules = []   # those, and the modules that the imported files need
+        self.module_mode = module_mode      # reading the .plain file of a module: 'export' and 'from python' are allowed
+        self.module_names = []              # the modules this file brings in, and those that its imports bring in
         self.base_dir = base_dir            # where 'import name' looks for name.plain
         self.shared = shared if shared is not None else {"done": set()}     # files already brought in
         self.chain = chain                  # the files that are being read right now (to find circles)
@@ -103,32 +101,28 @@ class Parser:
         while self.cur.kind != "EOF":
             body.append(self.parse_statement(top_level=True))
             self.skip_newlines()
-        types = [node for module in self.all_modules for node in module.struct_nodes()]
-        return N.Program(types + self.imported + body, [m.name for m in self.all_modules])
+        return N.Program(self.imported + body, self.module_names)
 
     def parse_import(self):
         start = self.advance()
         name = self.expect_name("a module name")
-        module = M.load(name.value)
-        if module is None:
-            self.import_file(name)
-        else:
-            if module in self.modules:
-                self.error(name, f"The module '{name.value}' is already imported.")
-            self.modules.append(module)
-            if module not in self.all_modules:
-                self.all_modules.append(module)
+        self.import_file(name)
         self.end_statement()
         return start
 
     def import_file(self, name):
-        """import lib: bring in the actions and types of lib.plain, which lies next to this program."""
+        """import window / import lib: bring in the types, fixed values and actions of a file. A module of Plain
+        (modules/window/window.plain) wins over a file of your own (lib.plain, next to this program)."""
         known = ", ".join(M.available()) or "none"
-        if not self.base_dir:
-            self.error(name, f"I don't know a module called '{name.value}'.",
-                       f"The modules are: {known}. To import your own file, save this program first: "
-                       f"the file '{name.value}.plain' is looked for next to it.")
-        path = os.path.abspath(os.path.join(self.base_dir, name.value + ".plain"))
+        module_file = M.module_path(name.value)
+        if module_file:
+            path = module_file
+        else:
+            if not self.base_dir:
+                self.error(name, f"I don't know a module called '{name.value}'.",
+                           f"The modules are: {known}. To import your own file, save this program first: "
+                           f"the file '{name.value}.plain' is looked for next to it.")
+            path = os.path.abspath(os.path.join(self.base_dir, name.value + ".plain"))
         key = os.path.normcase(path)
         if not os.path.isfile(path):
             mine = sorted(f[:-6] for f in os.listdir(self.base_dir) if f.endswith(".plain"))
@@ -140,8 +134,10 @@ class Parser:
             self.error(name, f"'{name.value}' imports this file again, so the imports go in a circle.",
                        "Move what both files need into a third file that imports nothing.")
         if any(k == key for _n, k in self.local):
-            self.error(name, f"The file '{name.value}' is already imported.")
+            self.error(name, f"The {'module' if module_file else 'file'} '{name.value}' is already imported.")
         self.local.append((name.value, key))
+        if module_file and name.value not in self.module_names:
+            self.module_names.append(name.value)
         if key in self.shared["done"]:
             return              # another file has brought it in already
         try:
@@ -150,27 +146,26 @@ class Parser:
         except OSError as exc:
             self.error(name, f"I cannot read '{name.value}.plain': {exc.strerror}.")
         try:
-            sub = Parser(tokenize(text), os.path.dirname(path), self.shared, self.chain + (key,))
+            sub = Parser(tokenize(text), os.path.dirname(path), self.shared, self.chain + (key,),
+                         module_mode=bool(module_file))
             program = sub.parse_program()
         except PlainError as err:
             if err.file is None:
                 err.file = path
             raise
         self.shared["done"].add(key)
-        module_types = {n.name for m in sub.all_modules for n in m.struct_nodes()}
         for node in program.body:
-            if isinstance(node, N.DefineStruct) and node.line == 0 and node.name in module_types:
-                continue        # a type of a module: it is added once for the whole program
-            if not isinstance(node, (N.DefineStruct, N.ActionDef)) and not (isinstance(node, N.Let) and node.fixed):
+            allowed = (N.DefineStruct, N.ActionDef, N.PythonExport, N.PythonBlock)
+            if not isinstance(node, allowed) and not (isinstance(node, N.Let) and node.fixed):
                 raise PlainError("A file that is imported can only contain 'import', 'define', 'action' "
                                  "and 'let ... fixed'.", node.line, node.col,
                                  "Lines that do something belong in the main program.", file=path)
             if node.file is None:
                 node.file = path
             self.imported.append(node)
-        for module in sub.all_modules:
-            if module not in self.all_modules:
-                self.all_modules.append(module)
+        for module in program.imports:
+            if module not in self.module_names:
+                self.module_names.append(module)
 
     def parse_block(self, stops, opener, what):
         body = []
@@ -199,6 +194,8 @@ class Parser:
             if tok.value == "import":
                 self.error(tok, "'import' must be at the top of the program, before everything else.",
                            "For example:  import window")
+            if tok.value == "from" and self.module_mode and top_level:
+                return self.parse_from_python()
             if tok.value in ("action", "define"):
                 if not top_level:
                     self.error(tok, f"'{tok.value}' can only be used at the top level of the program, "
@@ -216,99 +213,12 @@ class Parser:
             if tok.value.lower() in KEYWORDS and tok.value != tok.value.lower():
                 self.error(tok, f"'{tok.value}' should be written with small letters.",
                            f"Keywords are written with small letters: {tok.value.lower()}")
-            sentence = self.parse_module_command()
-            if sentence is not None:
-                return sentence
+            if tok.value == "export" and self.module_mode and top_level:
+                return self.parse_export()
             if tok.value == "wait" and (self.peek().kind in ("NUMBER", "NAME", "TEXT") or self.peek().is_sym("-")):
                 return self.parse_wait()
             return self.parse_expr_statement()
         self.error(tok, f"I did not expect {describe(tok)} at the start of a line.")
-
-    # ---- sentences from modules (open window ..., draw circle at ..., window is open) -----
-
-    def head_matches(self, pattern):
-        return all(word(self.peek(k), w) for k, w in enumerate(pattern.head_words()))
-
-    def parse_module_command(self):
-        candidates = [p for m in self.modules for p in m.commands() if self.head_matches(p)]
-        if candidates:
-            pattern = max(candidates, key=lambda p: p.head)
-            tok = self.cur
-            args = self.parse_pattern(pattern)
-            self.end_statement()
-            return N.ExprStmt(N.Call(pattern.func, args, None, pattern.module, line=tok.line, col=tok.col),
-                              line=tok.line, col=tok.col)
-        for module in M.load_all():
-            if module in self.modules:
-                continue
-            for pattern in module.commands():
-                if self.head_matches(pattern):
-                    self.import_hint(module, " ".join(pattern.head_words()))
-        return None
-
-    def import_hint(self, module, sentence):
-        self.error(self.cur, f"'{sentence}' belongs to the module '{module.name}', which is not imported.",
-                   f"Add this line at the very top of your program:  import {module.name}")
-
-    def try_question(self):
-        """A sentence that gives a value, e.g. 'window is open'. Returns None when the words are something else."""
-        tok = self.cur
-        if tok.kind != "NAME":
-            return None
-        for module in M.load_all():
-            for pattern in module.questions():
-                if not word(tok, pattern.parts[0].word):
-                    continue
-                saved, saved_at = self.i, self.no_at
-                try:
-                    args = self.parse_pattern(pattern)
-                except PlainError:
-                    self.i, self.no_at = saved, saved_at
-                    continue
-                if module not in self.modules:
-                    self.i = saved
-                    self.import_hint(module, pattern.example())
-                return N.Call(pattern.func, args, None, pattern.module, line=tok.line, col=tok.col)
-        return None
-
-    def parse_pattern(self, pattern):
-        """Read one sentence of a module: its words and commas must be there, its values are expressions."""
-        hint = "Write: " + pattern.example()
-        args = []
-        for k, part in enumerate(pattern.parts):
-            if part.kind == "word":
-                if not word(self.cur, part.word):
-                    self.error(self.cur, f"I expected '{part.word}' here but found {describe(self.cur)}.", hint)
-                self.advance()
-            elif part.kind == "comma":
-                self.expect_sym(",", hint)
-            elif part.type == "color":
-                args += self.parse_color(pattern.module, hint)
-            else:
-                following = pattern.parts[k + 1] if k + 1 < len(pattern.parts) else None
-                guard = following is not None and following.kind == "word" and following.word == "at"
-                self.no_at += guard
-                try:
-                    args.append(self.parse_additive())
-                finally:
-                    self.no_at -= guard
-        return args
-
-    def parse_color(self, module_name, hint):
-        """A color name (orange), a Color value (sky) or three numbers: returns red, green, blue expressions."""
-        tok = self.cur
-        colors = M.load(module_name).colors
-        if tok.kind == "NAME" and tok.value in colors and self.peek().kind in ("NEWLINE", "EOF"):
-            self.advance()
-            return [N.Num(float(v), line=tok.line, col=tok.col) for v in colors[tok.value]]
-        value = self.parse_additive()
-        if self.cur.is_sym(","):            # use color 255, 128, 0
-            self.advance()
-            green = self.parse_additive()
-            self.expect_sym(",", "Write three numbers from 0 to 255:  use color 255, 128, 0")
-            return [value, green, self.parse_additive()]
-        return [N.Field(part, copy.deepcopy(value), line=tok.line, col=tok.col)
-                for part in ("red", "green", "blue")]
 
     def parse_expr_statement(self):
         start = self.cur
@@ -334,14 +244,27 @@ class Parser:
         return N.ExprStmt(expr, line=start.line, col=start.col)
 
     def parse_run(self):
-        """run name(values): runs an action. 'run' always means: run the code of an action."""
+        """run name(values)  /  run name of thing  /  run name(values) of thing: runs an action.
+        'run' always means: run the code of an action."""
         start = self.advance()
-        hint = "Write: run name(value1, value2)"
-        if self.cur.kind != "NAME" or not self.peek().is_sym("("):
+        hint = "Write: run name(value1, value2)   or   run name(value) of thing"
+        if self.cur.kind != "NAME" or not (self.peek().is_sym("(") or self.peek().is_kw("of")):
             self.error(self.cur, f"I expected the name of an action after 'run' but found {describe(self.cur)}.", hint)
-        call = self.parse_primary()
+        if self.peek().is_kw("of"):                      # run show of window
+            name = self.advance()
+            self.advance()
+            call = N.Call(name.value, [self.parse_access()], line=name.line, col=name.col)
+        else:
+            call = self.parse_receiver(self.parse_primary())
         self.end_statement()
         return N.ExprStmt(call, line=start.line, col=start.col)
+
+    def parse_receiver(self, call):
+        """name(values) of thing: the thing the action works on is written after 'of' and is the first value."""
+        if isinstance(call, N.Call) and self.cur.is_kw("of") and self.toks[self.i - 1].is_sym(")"):
+            self.advance()
+            call.args.insert(0, self.parse_access())
+        return call
 
     def parse_let(self):
         start = self.advance()
@@ -562,7 +485,7 @@ class Parser:
         name = self.expect_name("a name for the new type")
         self.expect_kw("as", "Write: define Player as")
         self.end_statement()
-        fields = []
+        fields, defaults, readonly = [], {}, set()
         while True:
             self.skip_newlines()
             if self.cur.is_kw("end"):
@@ -572,11 +495,98 @@ class Parser:
             fname = self.expect_name("a field name")
             self.expect_kw("as", "Write: <field> as number")
             ftype = self.parse_type()
+            if self.cur.is_sym("="):            # color as Color = black: the value when none is given
+                self.advance()
+                defaults[fname.value] = self.parse_expr()
+            if word(self.cur, "readonly"):      # open as boolean readonly: only Python changes it
+                self.advance()
+                readonly.add(fname.value)
             self.end_statement()
             fields.append((fname.value, ftype, fname.line))
         self.expect_kw("end")
         self.end_statement()
-        return N.DefineStruct(name.value, fields, line=start.line, col=start.col)
+        return N.DefineStruct(name.value, fields, defaults, readonly, line=start.line, col=start.col)
+
+    # ---- what only a module file may say ------------------------------------------
+
+    def parse_export(self):
+        """export Window as window to python "window_impl": Python builds this type; in this file it is called window."""
+        start = self.advance()
+        hint = 'Write: export Window as window to python "window_impl"'
+        type_name = self.expect_name("the name of a type")
+        self.expect_kw("as", hint)
+        alias = self.expect_name("a short name for the thing")
+        self.expect_kw("to", hint)
+        if not word(self.cur, "python"):
+            self.error(self.cur, f"I expected 'python' here but found {describe(self.cur)}.", hint)
+        self.advance()
+        if self.cur.kind != "TEXT":
+            self.error(self.cur, f"I expected the name of the Python file in quotes but found {describe(self.cur)}.", hint)
+        pyfile = self.advance().value
+        self.end_statement()
+        return N.PythonExport(type_name.value, alias.value, pyfile, line=start.line, col=start.col)
+
+    def parse_from_python(self):
+        """from python "window_impl" ... end: the actions and questions that the Python file provides."""
+        start = self.advance()
+        hint = 'Write: from python "window_impl"'
+        if not word(self.cur, "python"):
+            self.error(self.cur, f"I expected 'python' here but found {describe(self.cur)}.", hint)
+        self.advance()
+        if self.cur.kind != "TEXT":
+            self.error(self.cur, f"I expected the name of the Python file in quotes but found {describe(self.cur)}.", hint)
+        pyfile = self.advance().value
+        self.end_statement()
+        actions = []
+        while True:
+            self.skip_newlines()
+            if self.cur.is_kw("end"):
+                break
+            if self.cur.kind == "EOF":
+                self.error(start, "This 'from python' block is never closed.", "Add 'end' after the last action.")
+            actions.append(self.parse_py_action())
+        self.expect_kw("end")
+        self.end_statement()
+        return N.PythonBlock(pyfile, actions, line=start.line, col=start.col)
+
+    def parse_py_action(self):
+        tok = self.cur
+        question = word(tok, "question")
+        if not (tok.is_kw("action") or question):
+            self.error(tok, f"I expected 'action' or 'question' here but found {describe(tok)}.")
+        self.advance()
+        name = self.expect_name("a name")
+        params = []
+        if self.cur.is_sym("("):
+            self.advance()
+            if not self.cur.is_sym(")"):
+                while True:
+                    pname = self.expect_name("a parameter name")
+                    self.expect_kw("as", "Write: name as number")
+                    ptype = self.parse_type()
+                    default = None
+                    if self.cur.is_sym("="):
+                        self.advance()
+                        default = self.parse_expr()
+                    params.append(N.PyParam(pname.value, ptype, default))
+                    if self.cur.is_sym(","):
+                        self.advance()
+                        continue
+                    break
+            self.expect_sym(")", "A '(' was opened but never closed.")
+        receiver = None
+        if self.cur.is_kw("of"):
+            self.advance()
+            receiver = self.expect_name("the name of the thing it works on").value
+        gives = None
+        if word(self.cur, "gives"):
+            self.advance()
+            gives = self.parse_type()
+        elif question:
+            self.error(self.cur, "A question needs 'gives' and a type.",
+                       "For example: question is_down(key as text) of window gives boolean")
+        self.end_statement()
+        return N.PyAction(name.value, params, receiver, gives, question, line=tok.line, col=tok.col)
 
     def parse_type(self):
         tok = self.cur
@@ -669,8 +679,8 @@ class Parser:
         return self.parse_postfix()
 
     def parse_postfix(self):
-        expr = self.parse_primary()
-        while self.cur.is_kw("at") and not self.no_at:
+        expr = self.parse_receiver(self.parse_primary())
+        while self.cur.is_kw("at"):
             tok = self.advance()
             index = self.parse_primary()
             expr = N.Index(expr, index, line=tok.line, col=tok.col)
@@ -690,9 +700,6 @@ class Parser:
         if tok.is_kw("nothing"):
             self.advance()
             return N.Nothing(line=tok.line, col=tok.col)
-        question = self.try_question()
-        if question is not None:
-            return question
         if tok.kind == "NAME":
             self.advance()
             if tok.value == "ask" and self.cur.kind == "TEXT":
@@ -702,9 +709,7 @@ class Parser:
             return N.Var(tok.value, line=tok.line, col=tok.col)
         if tok.is_sym("("):
             self.advance()
-            saved, self.no_at = self.no_at, 0
             expr = self.parse_expr()
-            self.no_at = saved
             self.expect_sym(")", "A '(' was opened but never closed.")
             return expr
         if tok.kind == "KEYWORD":
@@ -718,15 +723,13 @@ class Parser:
             while True:
                 if self.cur.kind == "NAME" and self.peek().is_sym(":"):
                     if named is None:
-                        if args:
-                            self.error(self.cur, "Do not mix plain values and 'name: value' pairs.")
                         named = []
                     fname = self.advance()
                     self.advance()
                     named.append((fname.value, self.parse_expr()))
                 else:
                     if named is not None:
-                        self.error(self.cur, "Do not mix plain values and 'name: value' pairs.")
+                        self.error(self.cur, "Plain values come first, then the 'name: value' pairs.")
                     args.append(self.parse_expr())
                 if self.cur.is_sym(","):
                     self.advance()

@@ -1,0 +1,36 @@
+note: name(values) of thing: the thing the action works on is written after 'of' and is its first value.
+define Hero as
+    name as text
+    health as number
+end
+
+action heal takes(hero, amount) do
+    set health of hero to min(100, health of hero + amount)
+end
+
+action describe takes(hero, prefix) do
+    return prefix + name of hero + " " + health of hero
+end
+
+action area takes(w, h) do
+    return w * h
+end
+
+action hurt takes(hero) do
+    set health of hero to health of hero - 1
+end
+
+let hero be Hero(name: "Ada", health: 50)
+run heal(20) of hero
+say describe("Hero: ") of hero
+say describe(hero, prefix: "Same: ")
+say describe(prefix: "Named: ") of hero
+say describe(prefix: "All: ", hero: hero)
+say area(h: 3, w: 4)
+run hurt of hero
+say health of hero
+say replace("-", "+") of "a-b-c"
+say upper of name of hero
+if contains("d") of name of hero then
+    say "has a d"
+end

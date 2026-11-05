@@ -136,7 +136,7 @@ a forced close the IDE offers to bring them back. Open the folder with *Help > O
 ## Windows in programs
 
 Programs can open windows with the `window` module (`import window`, then for example
-`open window "Title" with width 640 and height 480`; see the Examples menu > ball). The program's
+`let win be Window(title: "Title", width: 640, height: 480)`; see the Examples menu > ball). The program's
 window opens next to the IDE; *Stop* or closing it ends the program.
 
 ## How the code is organized

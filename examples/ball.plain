@@ -35,23 +35,20 @@ action hits_paddle takes(ball, position) do
     return y of ball > 292 and y of ball < 310 and x of ball > position and x of ball < position + 80
 end
 
-action draw_scene takes(ball, position, score, lives, background) do
-    clear window with color background
-    use color white
-    draw rectangle at position, 300 size 80 by 10
-    use color orange
-    draw circle at x of ball, y of ball radius 8
-    use color white
-    draw text "Score: " + score + "   Lives: " + lives at 10, 8
+action draw_scene takes(win, ball, position, score, lives) do
+    run clear of win
+    run draw_rectangle(position, 300, 80, 10, white) of win
+    run draw_circle(x of ball, y of ball, 8, orange) of win
+    run draw_text("Score: " + score + "   Lives: " + lives, 10, 8, white) of win
 end
 
-open window "Plain Ball" with width 480 and height 320
+let win be Window(title: "Plain Ball", width: 480, height: 320, background: sky)
 
-while window is open do
-    if key "left" is pressed then
+while open of win do
+    if is_down("left") of win then
         set paddle to move_paddle(paddle, -6)
     end
-    if key "right" is pressed then
+    if is_down("right") of win then
         set paddle to move_paddle(paddle, 6)
     end
 
@@ -73,6 +70,6 @@ while window is open do
         end
     end
 
-    run draw_scene(ball, paddle, score, lives, sky)
-    show window
+    run draw_scene(win, ball, paddle, score, lives)
+    run show of win
 end

@@ -27,4 +27,4 @@ plainide = "ide/plainide"
 version = { attr = "plain.__version__" }
 
 [tool.setuptools.package-data]
-"modules.window" = ["window.plain", "window.py"]
+"modules.window" = ["window.plain", "window_impl.py"]

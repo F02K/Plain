@@ -1,0 +1,380 @@
+note: Plain Platformer - a small side scroller to test how Plain feels for a bigger program.
+note: Arrow keys move, up or space jumps, S saves, L loads, R starts again.
+note: Collect the coins, jump on the red enemies and reach the flag.
+import window
+
+define Player as
+    x as number
+    y as number
+    vx as number
+    vy as number
+    on_ground as boolean
+    coins as number
+    lives as number
+end
+
+define Enemy as
+    x as number
+    y as number
+    dir as number
+    alive as boolean
+end
+
+let tile be 32 fixed
+let screen_w be 480 fixed
+let screen_h be 320 fixed
+let player_w be 24 fixed
+let player_h be 30 fixed
+let gravity be 1 fixed
+let jump_speed be 14 fixed
+let run_speed be 4 fixed
+let start_x be 64 fixed
+let start_y be 226 fixed
+let save_file be "platformer.sav" fixed
+
+note: ---------- the level ----------
+note: # ground, o coin, F flag, . nothing. Every row is 64 tiles wide.
+
+action build_level takes(level) do
+    add "................................................................" to level
+    add "................................................................" to level
+    add "................................................................" to level
+    add "..........................................oo...................." to level
+    add ".....................ooo.................####..................." to level
+    add "..........oo....o...#####.......o....oo..............oo........." to level
+    add ".........####..o............#.......####............####......F." to level
+    add ".....ooo..................###.................................F." to level
+    add "##############...#############....############...###############" to level
+    add "##############...#############....############...###############" to level
+end
+
+action clear_list takes(items) do
+    while size of items > 0 do
+        remove at 0 from items
+    end
+end
+
+action build_enemies takes(enemies) do
+    add Enemy(x: 400, y: 232, dir: 1, alive: true) to enemies
+    add Enemy(x: 1100, y: 232, dir: -1, alive: true) to enemies
+    add Enemy(x: 1500, y: 232, dir: 1, alive: true) to enemies
+end
+
+note: ---------- looking at the level ----------
+
+note: Which tile column or row a pixel is in (rounds down, also for negative numbers).
+action cell takes(pixel) do
+    return (pixel - pixel mod tile) / tile
+end
+
+action tile_at takes(level, col, row) do
+    if row < 0 or row >= size of level then
+        return "."
+    end
+    if col < 0 or col >= length of (level at 0) then
+        return "#"
+    end
+    return part(level at row, col, 1)
+end
+
+action is_solid takes(level, px, py) do
+    return tile_at(level, cell(px), cell(py)) = "#"
+end
+
+note: Does a box with its top left corner at px, py touch the ground?
+action blocked takes(level, px, py, w, h) do
+    let right be px + w - 1
+    let bottom be py + h - 1
+    return is_solid(level, px, py) or is_solid(level, right, py) or is_solid(level, px, bottom) or is_solid(level, right, bottom)
+end
+
+action overlaps takes(ax, ay, aw, ah, bx, by, bw, bh) do
+    return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+end
+
+note: ---------- moving things ----------
+
+action move_player takes(p, level) do
+    let dir be 1
+    if vx of p < 0 then
+        set dir to -1
+    end
+    for i from 1 to abs of vx of p do
+        if blocked(level, x of p + dir, y of p, player_w, player_h) then
+            set vx of p to 0
+            stop
+        end
+        set x of p to x of p + dir
+    end
+
+    set vy of p to min(vy of p + gravity, 12)
+    set on_ground of p to false
+    let down be 1
+    if vy of p < 0 then
+        set down to -1
+    end
+    for step_count from 1 to abs of vy of p do
+        if blocked(level, x of p, y of p + down, player_w, player_h) then
+            if down = 1 then
+                set on_ground of p to true
+            end
+            set vy of p to 0
+            stop
+        end
+        set y of p to y of p + down
+    end
+end
+
+action update_enemy takes(e, level) do
+    if alive of e then
+        let next_x be x of e + dir of e
+        let ahead be next_x
+        if dir of e > 0 then
+            set ahead to next_x + 23
+        end
+        if blocked(level, next_x, y of e, 24, 24) or not is_solid(level, ahead, y of e + 25) then
+            set dir of e to -dir of e
+        else
+            set x of e to next_x
+        end
+    end
+end
+
+action collect_coins takes(p, level) do
+    let col be cell(x of p + player_w / 2)
+    let row be cell(y of p + player_h / 2)
+    if tile_at(level, col, row) = "o" then
+        let old be level at row
+        set level at row to part(old, 0, col) + "." + part(old, col + 1, length of old - col - 1)
+        set coins of p to coins of p + 1
+    end
+end
+
+action respawn takes(p) do
+    set x of p to start_x
+    set y of p to start_y
+    set vx of p to 0
+    set vy of p to 0
+end
+
+action new_game takes(p, level, enemies) do
+    run clear_list(level)
+    run build_level(level)
+    run clear_list(enemies)
+    run build_enemies(enemies)
+    run respawn(p)
+    set coins of p to 0
+    set lives of p to 3
+end
+
+note: ---------- saving and loading ----------
+note: This is the part that hurts: files are only text, so we build and take apart the text by hand.
+
+action save_game takes(p, level) do
+    let data be "plain-platformer 1\n"
+    set data to data + "x=" + x of p + "\n"
+    set data to data + "y=" + y of p + "\n"
+    set data to data + "coins=" + coins of p + "\n"
+    set data to data + "lives=" + lives of p + "\n"
+    set data to data + "level\n" + join(level, "\n") + "\n"
+    run write_file(save_file, data)
+end
+
+action load_game takes(p, level) do
+    if not file_exists(save_file) then
+        fail "There is no saved game yet."
+    end
+    let lines be split(trim of read_file(save_file), "\n")
+    let new_level be list of text
+    let in_level be false
+    let sx be -1
+    let sy be -1
+    let scoins be -1
+    let slives be -1
+    for each line in lines do
+        if in_level then
+            add line to new_level
+        else if line = "level" then
+            set in_level to true
+        else
+            let parts be split(line, "=")
+            if size of parts = 2 then
+                let key be parts at 0
+                let value be number of (parts at 1)
+                if key = "x" then
+                    set sx to value
+                else if key = "y" then
+                    set sy to value
+                else if key = "coins" then
+                    set scoins to value
+                else if key = "lives" then
+                    set slives to value
+                end
+            end
+        end
+    end
+    if sx < 0 or sy < 0 or scoins < 0 or slives < 0 or not (size of new_level = 10) then
+        fail "The saved game is broken."
+    end
+    run clear_list(level)
+    for each row in new_level do
+        add row to level
+    end
+    set x of p to sx
+    set y of p to sy
+    set vx of p to 0
+    set vy of p to 0
+    set coins of p to scoins
+    set lives of p to slives
+end
+
+note: ---------- drawing ----------
+
+action draw_world takes(win, level, cam) do
+    let first be cell(cam)
+    for col from first to first + 15 do
+        if col < length of (level at 0) then
+            for row from 0 to size of level - 1 do
+                let t be tile_at(level, col, row)
+                let sx be col * tile - cam
+                let sy be row * tile
+                if t = "#" then
+                    run draw_rectangle(sx, sy, 32, 32, brown) of win
+                    if tile_at(level, col, row - 1) = "." then
+                        run draw_rectangle(sx, sy, 32, 8, green) of win
+                    end
+                else if t = "o" then
+                    run draw_circle(sx + 16, sy + 16, 7, yellow) of win
+                else if t = "F" then
+                    run draw_rectangle(sx + 14, sy, 4, 32, white) of win
+                    run draw_rectangle(sx + 18, sy, 14, 10, red) of win
+                end
+            end
+        end
+    end
+end
+
+action draw_enemies takes(win, enemies, cam) do
+    for each e in enemies do
+        if alive of e then
+            run draw_rectangle(x of e - cam, y of e, 24, 24, red) of win
+            run draw_rectangle(x of e - cam + 5, y of e + 6, 4, 4, white) of win
+            run draw_rectangle(x of e - cam + 15, y of e + 6, 4, 4, white) of win
+        end
+    end
+end
+
+action draw_player takes(win, p, cam) do
+    run draw_rectangle(x of p - cam, y of p, player_w, player_h, blue) of win
+    run draw_rectangle(x of p - cam + 14, y of p + 6, 6, 6, white) of win
+end
+
+action draw_hud takes(win, p, message, state) do
+    run draw_text("Coins: " + coins of p + "   Lives: " + lives of p, 10, 8, white) of win
+    if not (message = "") then
+        run draw_text(message, 10, 28, white) of win
+    end
+    if state = "won" then
+        run draw_text("You reached the flag with " + coins of p + " coins! Press R to play again.", 40, 150, white) of win
+    else if state = "over" then
+        run draw_text("Game over. Press R to play again.", 120, 150, white) of win
+    end
+end
+
+note: ---------- the game ----------
+
+let sky be Color(red: 110, green: 180, blue: 255)
+let hero be Player(x: start_x, y: start_y, vx: 0, vy: 0, on_ground: false, coins: 0, lives: 3)
+let level be list of text
+let enemies be list of Enemy
+run new_game(hero, level, enemies)
+
+let state be "play"
+let message be "S saves, L loads"
+let message_frames be 240
+let s_was_down be false
+let l_was_down be false
+
+let win be Window(title: "Plain Platformer", width: screen_w, height: screen_h, background: sky)
+
+while open of win do
+    note: save and load react once per key press, not for every frame the key is held
+    let s_down be is_down("s") of win
+    let l_down be is_down("l") of win
+    if s_down and not s_was_down and state = "play" then
+        run save_game(hero, level)
+        set message to "Game saved."
+        set message_frames to 120
+    end
+    if l_down and not l_was_down then
+        try
+            run load_game(hero, level)
+            set state to "play"
+            set message to "Game loaded."
+        catch error then
+            set message to error
+        end
+        set message_frames to 120
+    end
+    set s_was_down to s_down
+    set l_was_down to l_down
+
+    if is_down("r") of win then
+        run new_game(hero, level, enemies)
+        set state to "play"
+    end
+
+    if state = "play" then
+        set vx of hero to 0
+        if is_down("left") of win then
+            set vx of hero to -run_speed
+        end
+        if is_down("right") of win then
+            set vx of hero to run_speed
+        end
+        if (is_down("up") of win or is_down("space") of win) and on_ground of hero then
+            set vy of hero to -jump_speed
+        end
+
+        run move_player(hero, level)
+        run collect_coins(hero, level)
+
+        for each e in enemies do
+            run update_enemy(e, level)
+            if alive of e and overlaps(x of hero, y of hero, player_w, player_h, x of e, y of e, 24, 24) then
+                if vy of hero > 0 and y of hero + player_h - 12 < y of e then
+                    set alive of e to false
+                    set vy of hero to -8
+                else
+                    set lives of hero to lives of hero - 1
+                    run respawn(hero)
+                end
+            end
+        end
+
+        if y of hero > screen_h + 40 then
+            set lives of hero to lives of hero - 1
+            run respawn(hero)
+        end
+        if lives of hero <= 0 then
+            set state to "over"
+        end
+        if tile_at(level, cell(x of hero + 12), cell(y of hero + 15)) = "F" then
+            set state to "won"
+        end
+    end
+
+    let cam be max(0, min(x of hero - 200, length of (level at 0) * tile - screen_w))
+
+    run clear of win
+    run draw_world(win, level, cam)
+    run draw_enemies(win, enemies, cam)
+    run draw_player(win, hero, cam)
+    if message_frames > 0 then
+        set message_frames to message_frames - 1
+    else
+        set message to ""
+    end
+    run draw_hud(win, hero, message, state)
+    run show of win
+end
