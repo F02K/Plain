@@ -33,12 +33,13 @@ end
 
 action healPlayer takes(player, amount) do
     set health of player to health of player + amount
-    if health of player > 100 then
-        set health of player to 100
+    if health of player > max_health then
+        set health of player to max_health
     end
 end
 
-let hero be Player(x: 0, y: 0, health: 100, score: 0)
+let max_health be 100 fixed
+let hero be Player(x: 0, y: 0, health: max_health, score: 0)
 let enemies be list of Enemy
 
 add Enemy(x: 3, y: 0, damage: random(10, 20), alive: true) to enemies
@@ -62,6 +63,6 @@ while health of hero > 0 do
 end
 
 say "Health left: " + health of hero
-if health of hero = 0 or health of hero < 0 then
+if health of hero <= 0 then
     say "Game Over"
 end

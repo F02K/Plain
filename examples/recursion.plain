@@ -6,8 +6,6 @@ action factorial takes(n) do
     return n * factorial(n - 1)
 end
 
-let n be 1
-while n <= 10 do
+for n from 1 to 10 do
     say "factorial(" + n + ") = " + factorial(n)
-    set n to n + 1
 end
