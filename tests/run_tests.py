@@ -62,9 +62,9 @@ def error_case(path):
 
 
 def symbol_checks():
-    """The IDE explains a name when you click it (ide/symbols.py). Checked here without opening any window."""
+    """The IDE explains a name when you click it (ide/plainide/symbols.py). Checked here without opening any window."""
     sys.path.insert(0, os.path.join(ROOT, "ide"))
-    from symbols import analyze
+    from plainide.symbols import analyze
     source = read(os.path.join(ROOT, "examples", "ball.plain"))
     lines = source.splitlines()
 
@@ -85,9 +85,9 @@ def symbol_checks():
 
 
 def project_checks():
-    """Projects of the IDE (ide/projects.py): definition file, recent list and the Python build."""
+    """Projects of the IDE (ide/plainide/projects.py): definition file, recent list and the Python build."""
     sys.path.insert(0, os.path.join(ROOT, "ide"))
-    import projects as P
+    from plainide import projects as P
     with tempfile.TemporaryDirectory() as tmp:
         folder = os.path.join(tmp, "My Game")
         os.makedirs(folder)
@@ -118,7 +118,7 @@ def project_checks():
 def main():
     failures = 0
     total = 2
-    for label, check in (("ide/symbols.py", symbol_checks), ("ide/projects.py", project_checks)):
+    for label, check in (("ide/plainide/symbols.py", symbol_checks), ("ide/plainide/projects.py", project_checks)):
         ok, detail = check()
         print(("PASS " if ok else "FAIL ") + label)
         if not ok:

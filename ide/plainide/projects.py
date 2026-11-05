@@ -34,12 +34,13 @@ class Project:
         self.name = name or os.path.basename(self.folder) or "program"
         self.main = main
         self.output = output or slug(self.name)
+        self.file = None            # the project file it was read from (it may have another name than the slug)
 
     # ---- files ---------------------------------------------------------------
 
     @property
     def path(self):
-        return os.path.join(self.folder, slug(self.name) + EXT)
+        return self.file or os.path.join(self.folder, slug(self.name) + EXT)
 
     @property
     def main_path(self):
@@ -73,22 +74,29 @@ class Project:
     @staticmethod
     def load(path):
         """Read a project definition file. Raises ValueError with a friendly message."""
-        values = {}
         try:
             with open(path, encoding="utf-8") as f:
-                lines = f.read().splitlines()
+                text = f.read()
         except OSError as exc:
             raise ValueError(f"I cannot read this project file: {exc.strerror}")
-        for line in lines:
+        return Project.from_text(text, path)
+
+    @staticmethod
+    def from_text(text, path):
+        """Read the text of a project file (also text that is being edited and not saved yet)."""
+        values = {}
+        for line in text.splitlines():
             line = line.strip()
             if not line or line.startswith("note:"):
                 continue
             key, _, value = line.partition(" ")
             if key not in ("name", "main", "output"):
-                raise ValueError(f"I do not understand the line '{line}' in the project file.")
+                raise ValueError(f"I do not understand the line '{line}' in the project file. "
+                                 "A project file has the lines: name, main and output.")
             values[key] = value.strip()
         folder = os.path.dirname(os.path.abspath(path))
         project = Project(folder, values.get("name"), values.get("main") or "main.plain", values.get("output"))
+        project.file = os.path.abspath(path)
         return project
 
     @staticmethod
