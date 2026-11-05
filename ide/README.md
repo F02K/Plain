@@ -26,6 +26,9 @@ A small editor for Plain, made for classrooms: one window, one Run button.
   so they hardly slow the program down
 - Errors show the faulty line and mark it red in the editor
 - **Examples** menu with the programs from `examples/`, **Help > Quick reference** (F1) as a cheat sheet
+- Looks like Visual Studio Code: a dark theme (default) and a light one (*View > Dark theme / Light theme*, or the
+  *Dark / Light* button; the choice is remembered), an Explorer on the left, tabs on top, the Output panel below,
+  the current line highlighted and a status bar (line and column, project; orange while a program runs or is built)
 - Bigger / smaller text with Ctrl and + / -
 
 ## Run, Build and Release

@@ -87,15 +87,38 @@ for _module in MODULES.load_all():      # 'open', 'draw', 'use', ... fill in a w
     for _pattern in _module.commands():
         SNIPPETS.setdefault(_pattern.parts[0].word, _pattern.snippet())
 
-LIGHT = {
-    "bg": "#ffffff", "fg": "#1f2328", "gutter_bg": "#f3f4f6", "gutter_fg": "#8a8f98",
-    "keyword": "#0b5cad", "helper": "#7a3db8", "string": "#1a7f37", "number": "#b35900",
-    "comment": "#8a8f98", "error_line": "#ffd9d9",
-    "out_bg": "#fafafa", "out_err": "#c62828", "out_in": "#0b5cad", "out_info": "#6b7280",
-    "pop_bg": "#ffffff", "pop_sel": "#cfe3ff",
-    "symbol": "#fff1b8", "symbol_def": "#ffd966", "watch_changed": "#fff1b8",
-    "inline_fg": "#4a5d86", "inline_bg": "#eef2fb",
+# Colors follow Visual Studio Code: "Dark+" and "Light+".
+DARK = {
+    "bg": "#1e1e1e", "fg": "#d4d4d4", "gutter_bg": "#1e1e1e", "gutter_fg": "#858585",
+    "keyword": "#569cd6", "helper": "#c586c0", "string": "#ce9178", "number": "#b5cea8",
+    "comment": "#6a9955", "error_line": "#5a1d1d", "current_line": "#282828", "select_bg": "#264f78",
+    "out_err": "#f48771", "out_in": "#4fc1ff", "out_info": "#9d9d9d",
+    "pop_bg": "#252526", "pop_sel": "#04395e",
+    "symbol": "#3a3d41", "symbol_def": "#575c66", "watch_changed": "#4d4a1f",
+    "inline_fg": "#7aa2d6", "inline_bg": "#232b3a",
+    "ui_bg": "#252526", "toolbar_bg": "#333333", "side_bg": "#252526", "panel_bg": "#1e1e1e",
+    "tab_bg": "#2d2d2d", "border": "#3c3c3c", "input_bg": "#3c3c3c",
+    "button_bg": "#3c3c3c", "button_hover": "#505050", "accent": "#007acc",
+    "run_bg": "#2e7d32", "run_hover": "#388e3c", "scroll": "#424242", "scroll_hover": "#686868",
+    "status_bg": "#007acc", "status_fg": "#ffffff", "busy_bg": "#cc6633",
 }
+
+LIGHT = {
+    "bg": "#ffffff", "fg": "#1f1f1f", "gutter_bg": "#ffffff", "gutter_fg": "#237893",
+    "keyword": "#0000ff", "helper": "#af00db", "string": "#a31515", "number": "#098658",
+    "comment": "#008000", "error_line": "#ffd9d9", "current_line": "#f3f3f3", "select_bg": "#add6ff",
+    "out_err": "#c62828", "out_in": "#0451a5", "out_info": "#6b6b6b",
+    "pop_bg": "#f3f3f3", "pop_sel": "#cce4f7",
+    "symbol": "#e8e8e8", "symbol_def": "#cfd6e4", "watch_changed": "#fff1b8",
+    "inline_fg": "#4a5d86", "inline_bg": "#eef2fb",
+    "ui_bg": "#f3f3f3", "toolbar_bg": "#e6e6e6", "side_bg": "#f3f3f3", "panel_bg": "#ffffff",
+    "tab_bg": "#ececec", "border": "#d4d4d4", "input_bg": "#ffffff",
+    "button_bg": "#dcdcdc", "button_hover": "#c8c8c8", "accent": "#007acc",
+    "run_bg": "#2e7d32", "run_hover": "#388e3c", "scroll": "#c1c1c1", "scroll_hover": "#a0a0a0",
+    "status_bg": "#007acc", "status_fg": "#ffffff", "busy_bg": "#cc6633",
+}
+
+THEMES = {"Dark": DARK, "Light": LIGHT}
 
 CHEAT_SHEET = """\
 Variables        let health be 100          set health to health - 5
@@ -171,6 +194,114 @@ def open_folder(path):
 
 
 # ---- running programs ------------------------------------------------------------
+
+SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(settings):
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(settings, f)
+    except OSError:
+        pass
+
+
+def apply_styles(root, t, ui_font):
+    """Give every ttk widget the look of the theme (flat, like Visual Studio Code)."""
+    s = ttk.Style(root)
+    s.theme_use("clam")
+    root.configure(bg=t["ui_bg"])
+    s.configure(".", background=t["ui_bg"], foreground=t["fg"], fieldbackground=t["input_bg"],
+                bordercolor=t["border"], darkcolor=t["ui_bg"], lightcolor=t["ui_bg"], troughcolor=t["bg"],
+                focuscolor=t["ui_bg"], selectbackground=t["select_bg"], selectforeground=t["fg"],
+                insertcolor=t["fg"], font=ui_font)
+
+    s.configure("TFrame", background=t["ui_bg"])
+    s.configure("Toolbar.TFrame", background=t["toolbar_bg"])
+    s.configure("Side.TFrame", background=t["side_bg"])
+    s.configure("Panel.TFrame", background=t["panel_bg"])
+    s.configure("PanelHead.TFrame", background=t["panel_bg"])
+    s.configure("Status.TFrame", background=t["status_bg"])
+    s.configure("StatusBusy.TFrame", background=t["busy_bg"])
+
+    s.configure("TLabel", background=t["ui_bg"], foreground=t["fg"])
+    s.configure("Side.TLabel", background=t["side_bg"], foreground=t["fg"])
+    s.configure("SideHead.TLabel", background=t["side_bg"], foreground=t["out_info"], font=(ui_font[0], 8, "bold"))
+    s.configure("SideTitle.TLabel", background=t["side_bg"], foreground=t["fg"], font=(ui_font[0], 9, "bold"))
+    s.configure("Info.TLabel", background=t["tab_bg"], foreground=t["out_info"])
+    s.configure("PanelTitle.TLabel", background=t["panel_bg"], foreground=t["fg"], font=(ui_font[0], 8, "bold"))
+    s.configure("Panel.TLabel", background=t["panel_bg"], foreground=t["out_info"])
+    s.configure("Status.TLabel", background=t["status_bg"], foreground=t["status_fg"], padding=(10, 2))
+    s.configure("StatusBusy.TLabel", background=t["busy_bg"], foreground=t["status_fg"], padding=(10, 2))
+
+    flat = dict(relief="flat", borderwidth=0, focusthickness=0)
+    s.configure("TButton", background=t["button_bg"], foreground=t["fg"], padding=(12, 5), **flat)
+    s.map("TButton", background=[("disabled", t["button_bg"]), ("pressed", t["button_hover"]),
+                                 ("active", t["button_hover"])],
+          foreground=[("disabled", t["out_info"])])
+    s.configure("Tool.TButton", background=t["button_bg"], foreground=t["fg"], padding=(11, 4), **flat)
+    s.map("Tool.TButton", background=[("disabled", t["toolbar_bg"]), ("pressed", t["button_hover"]),
+                                      ("active", t["button_hover"])],
+          foreground=[("disabled", t["out_info"])])
+    s.configure("Run.TButton", background=t["run_bg"], foreground="#ffffff", padding=(14, 4), **flat)
+    s.map("Run.TButton", background=[("disabled", t["button_bg"]), ("pressed", t["run_hover"]),
+                                     ("active", t["run_hover"])],
+          foreground=[("disabled", t["out_info"])])
+    s.configure("Toolbar.TCheckbutton", background=t["toolbar_bg"], foreground=t["fg"], padding=(4, 2))
+    s.map("Toolbar.TCheckbutton", background=[("active", t["toolbar_bg"])],
+          indicatorcolor=[("selected", t["accent"]), ("!selected", t["input_bg"])])
+    s.configure("TSeparator", background=t["border"])
+
+    s.configure("TNotebook", background=t["tab_bg"], borderwidth=0, tabmargins=(0, 0, 0, 0))
+    s.configure("TNotebook.Tab", background=t["tab_bg"], foreground=t["out_info"], padding=(16, 7),
+                borderwidth=0, lightcolor=t["tab_bg"], bordercolor=t["tab_bg"], darkcolor=t["tab_bg"])
+    s.map("TNotebook.Tab", background=[("selected", t["bg"]), ("active", t["button_bg"])],
+          foreground=[("selected", t["fg"])], lightcolor=[("selected", t["accent"])],
+          bordercolor=[("selected", t["bg"])], darkcolor=[("selected", t["bg"])],
+          expand=[("selected", (0, 0, 0, 0))])
+
+    s.configure("Treeview", background=t["side_bg"], fieldbackground=t["side_bg"], foreground=t["fg"],
+                borderwidth=0, rowheight=24)
+    s.map("Treeview", background=[("selected", t["select_bg"])], foreground=[("selected", t["fg"])])
+    s.layout("Treeview", [("Treeview.treearea", {"sticky": "nswe"})])
+    s.configure("Treeview.Heading", background=t["tab_bg"], foreground=t["out_info"], relief="flat",
+                borderwidth=0, padding=(6, 4))
+    s.map("Treeview.Heading", background=[("active", t["tab_bg"])])
+
+    for orient in ("Vertical", "Horizontal"):
+        name = f"{orient}.TScrollbar"
+        thumb = f"{orient}.Scrollbar.thumb"
+        side = "ns" if orient == "Vertical" else "ew"
+        s.layout(name, [(f"{orient}.Scrollbar.trough", {"children": [(thumb, {"expand": "1", "sticky": "nswe"})],
+                                                         "sticky": side})])
+        s.configure(name, background=t["scroll"], troughcolor=t["bg"], bordercolor=t["bg"], relief="flat",
+                    borderwidth=0, width=12)
+        s.map(name, background=[("active", t["scroll_hover"]), ("pressed", t["scroll_hover"])])
+
+    s.configure("TEntry", fieldbackground=t["input_bg"], foreground=t["fg"], bordercolor=t["border"],
+                insertcolor=t["fg"], padding=4)
+    s.map("TEntry", bordercolor=[("focus", t["accent"])])
+    s.configure("TCombobox", fieldbackground=t["input_bg"], background=t["button_bg"], foreground=t["fg"],
+                arrowcolor=t["fg"], bordercolor=t["border"], padding=4)
+    s.map("TCombobox", fieldbackground=[("readonly", t["input_bg"])], foreground=[("readonly", t["fg"])],
+          selectbackground=[("readonly", t["input_bg"])], selectforeground=[("readonly", t["fg"])])
+    root.option_add("*TCombobox*Listbox.background", t["input_bg"])
+    root.option_add("*TCombobox*Listbox.foreground", t["fg"])
+    root.option_add("*TCombobox*Listbox.selectBackground", t["select_bg"])
+    root.option_add("*TCombobox*Listbox.selectForeground", t["fg"])
+    s.configure("TPanedwindow", background=t["border"])
+    s.configure("Sash", sashthickness=3, gripcount=0, background=t["border"])
+
 
 class Runner:
     """Starts a program in its own process and streams its output."""
@@ -334,15 +465,13 @@ class EditorTab(ttk.Frame):
         if path is None:
             app.untitled_count += 1
             self.untitled = f"Untitled {app.untitled_count}"
-        t = app.theme
         font = app.font
 
-        self.gutter = tk.Text(self, width=4, padx=6, pady=4, font=font, bg=t["gutter_bg"], fg=t["gutter_fg"],
-                              bd=0, highlightthickness=0, state="disabled", cursor="arrow", takefocus=0,
-                              wrap="none")
+        self.gutter = tk.Text(self, width=4, padx=10, pady=6, font=font, bd=0, highlightthickness=0,
+                              state="disabled", cursor="arrow", takefocus=0, wrap="none", spacing1=1, spacing3=1)
         self.gutter.tag_configure("right", justify="right")
-        self.text = tk.Text(self, font=font, bg=t["bg"], fg=t["fg"], insertbackground=t["fg"], undo=True,
-                            wrap="none", bd=0, highlightthickness=0, padx=8, pady=4, tabs=(font.measure(INDENT),))
+        self.text = tk.Text(self, font=font, undo=True, wrap="none", bd=0, highlightthickness=0, padx=8, pady=6,
+                            tabs=(font.measure(INDENT),), spacing1=1, spacing3=1)
         self.yscroll = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
         xscroll = ttk.Scrollbar(self, orient="horizontal", command=self.text.xview)
         self.text.config(yscrollcommand=self.on_yscroll,
@@ -353,14 +482,11 @@ class EditorTab(ttk.Frame):
         self.text.grid(row=0, column=1, sticky="nsew")
         self.yscroll.grid(row=0, column=2, sticky="ns")
         xscroll.grid(row=1, column=1, sticky="ew")
-        self.info = ttk.Label(self, text="", anchor="w", padding=(8, 3), foreground=t["out_info"])
+        self.info = ttk.Label(self, text="", anchor="w", padding=(12, 3), style="Info.TLabel")
         self.info.grid(row=2, column=0, columnspan=3, sticky="ew")
 
-        for tag in ("keyword", "helper", "string", "number", "comment"):
-            self.text.tag_configure(tag, foreground=t[tag])
-        self.text.tag_configure("error_line", background=t["error_line"])
-        self.text.tag_configure("symbol", background=t["symbol"])
-        self.text.tag_configure("symbol_def", background=t["symbol_def"], underline=True)
+        self.restyle()
+        self.text.tag_lower("current_line")
         self.text.tag_lower("symbol")
         self.text.tag_lower("symbol_def")
         self.text.tag_raise("sel")
@@ -376,7 +502,8 @@ class EditorTab(ttk.Frame):
             self.text.bind(key, lambda e: self.completer.hide(), add="+")
         self.text.bind("<Control-space>", lambda e: (self.completer.update(force=True), "break")[1])
         self.text.bind("<KeyRelease>", self.on_key_release)
-        self.text.bind("<ButtonRelease-1>", lambda e: (self.completer.hide(), self.clear_marks(), self.schedule_symbol()))
+        self.text.bind("<ButtonRelease-1>", lambda e: (self.completer.hide(), self.clear_marks(), self.schedule_symbol(),
+                                                       self.update_cursor()))
         self.text.bind("<Control-Button-1>", self.goto_definition)
         # The text widget has its own Ctrl keys (Ctrl+O opens a new line...), so route ours through it.
         for key, action in (("n", app.new_tab), ("o", app.open_dialog), ("s", app.save), ("S", app.save_as),
@@ -387,6 +514,31 @@ class EditorTab(ttk.Frame):
         self.gutter.bind("<Button-5>", self.on_wheel)
 
         self.set_text(content)
+
+    def restyle(self):
+        """Colors from the current theme (called when the tab is made and when the theme changes)."""
+        t = self.app.theme
+        self.gutter.config(bg=t["gutter_bg"], fg=t["gutter_fg"])
+        self.text.config(bg=t["bg"], fg=t["fg"], insertbackground=t["fg"], selectbackground=t["select_bg"],
+                         selectforeground=t["fg"], inactiveselectbackground=t["select_bg"])
+        for tag in ("keyword", "helper", "string", "number", "comment"):
+            self.text.tag_configure(tag, foreground=t[tag])
+        self.text.tag_configure("error_line", background=t["error_line"])
+        self.text.tag_configure("current_line", background=t["current_line"])
+        self.text.tag_configure("symbol", background=t["symbol"])
+        self.text.tag_configure("symbol_def", background=t["symbol_def"], underline=True)
+        for label in self.inline_labels.values():
+            label.config(fg=t["inline_fg"], bg=t["inline_bg"])
+
+    def update_cursor(self):
+        """Mark the line of the cursor and tell the status bar where it is."""
+        self.text.tag_remove("current_line", "1.0", "end")
+        if self.text.tag_ranges("sel"):
+            return
+        line, col = (int(n) for n in self.text.index("insert").split("."))
+        self.text.tag_add("current_line", f"{line}.0", f"{line}.end+1c")
+        if self.app.current() is self:
+            self.app.update_position(line, col + 1)
 
     # ---- file state ----------------------------------------------------------
 
@@ -591,6 +743,7 @@ class EditorTab(ttk.Frame):
     def on_key_release(self, event):
         key = event.keysym
         self.schedule_symbol()
+        self.update_cursor()
         if not (len(key) == 1 and (key.isalnum() or key == "_")) and key not in ("BackSpace", "Delete"):
             return
         # Pull 'end', 'else' and 'catch' back to the level of the block they close.
@@ -608,7 +761,11 @@ class EditorTab(ttk.Frame):
 class App:
     def __init__(self, root, paths=()):
         self.root = root
-        self.theme = LIGHT
+        self.theme_name = load_settings().get("theme", "Dark")
+        if self.theme_name not in THEMES:
+            self.theme_name = "Dark"
+        self.theme = THEMES[self.theme_name]
+        self.status_text, self.status_busy = "Ready", False
         self.runner = Runner()
         self.tmp = tempfile.mkdtemp(prefix="plain_ide_")
         self.untitled_count = 0
@@ -632,9 +789,15 @@ class App:
         family = "Consolas" if sys.platform.startswith("win") else base.actual("family")
         self.font = tkfont.Font(family=family, size=13)
         self.small_font = tkfont.Font(family=family, size=10)
+        ui_family = "Segoe UI" if sys.platform.startswith("win") else tkfont.nametofont("TkDefaultFont").actual("family")
+        self.ui_font = (ui_family, 10)
+        for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
+            tkfont.nametofont(name).configure(family=ui_family, size=10)
+        apply_styles(self.root, self.theme, self.ui_font)
 
         self.build_menu()
         self.build_toolbar()
+        self.build_status()
         self.build_panes()
         self.bind_keys()
         self.install_crash_handler()
@@ -698,6 +861,12 @@ class App:
         view_menu = tk.Menu(menu, tearoff=False)
         view_menu.add_command(label="Bigger text", accelerator="Ctrl++", command=lambda: self.zoom(1))
         view_menu.add_command(label="Smaller text", accelerator="Ctrl+-", command=lambda: self.zoom(-1))
+        view_menu.add_separator()
+        self.theme_var = tk.StringVar(value=self.theme_name)
+        for name in THEMES:
+            view_menu.add_radiobutton(label=f"{name} theme", variable=self.theme_var, value=name,
+                                      command=lambda n=name: self.apply_theme(n))
+        view_menu.add_separator()
         view_menu.add_checkbutton(label="Live values in the code", variable=self.live_var)
         view_menu.add_checkbutton(label="List of values", variable=self.watch_var, command=self.toggle_watch)
         menu.add_cascade(label="View", menu=view_menu)
@@ -709,36 +878,96 @@ class App:
         self.root.config(menu=menu)
 
     def build_toolbar(self):
-        bar = ttk.Frame(self.root, padding=(6, 4))
+        bar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(8, 5))
         bar.pack(side="top", fill="x")
-        self.run_button = ttk.Button(bar, text="▶  Run (F5)", command=self.run)
+        self.run_button = ttk.Button(bar, text="\u25b6  Run  F5", style="Run.TButton", command=self.run)
         self.run_button.pack(side="left")
-        self.stop_button = ttk.Button(bar, text="■  Stop", command=self.stop, state="disabled")
+        self.stop_button = ttk.Button(bar, text="\u25a0  Stop", style="Tool.TButton", command=self.stop,
+                                      state="disabled")
         self.stop_button.pack(side="left", padx=(6, 0))
-        self.build_button = ttk.Button(bar, text="Build (F6)", command=self.build_action)
-        self.build_button.pack(side="left", padx=(18, 0))
-        self.release_button = ttk.Button(bar, text="Release (F7)", command=self.release_action)
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=14, pady=3)
+        self.build_button = ttk.Button(bar, text="Build  F6", style="Tool.TButton", command=self.build_action)
+        self.build_button.pack(side="left")
+        self.release_button = ttk.Button(bar, text="Release  F7", style="Tool.TButton", command=self.release_action)
         self.release_button.pack(side="left", padx=(6, 0))
-        ttk.Checkbutton(bar, text="Live values", variable=self.live_var).pack(side="left", padx=(18, 0))
-        ttk.Checkbutton(bar, text="Value list", variable=self.watch_var,
+        ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=14, pady=3)
+        ttk.Checkbutton(bar, text="Live values", style="Toolbar.TCheckbutton",
+                        variable=self.live_var).pack(side="left")
+        ttk.Checkbutton(bar, text="Value list", style="Toolbar.TCheckbutton", variable=self.watch_var,
                         command=self.toggle_watch).pack(side="left", padx=(10, 0))
+        ttk.Button(bar, text="Dark / Light", style="Tool.TButton", command=self.toggle_theme).pack(side="right")
+
+    def build_status(self):
+        bar = ttk.Frame(self.root, style="Status.TFrame")
+        bar.pack(side="bottom", fill="x")
+        self.status_frame = bar
+        self.status_labels = []
+        for text, side in (("Ready", "left"), ("", "left"), ("Plain", "right"), ("Spaces: 4", "right"),
+                           ("Ln 1, Col 1", "right")):
+            label = ttk.Label(bar, text=text, style="Status.TLabel")
+            label.pack(side=side)
+            self.status_labels.append(label)
+        self.status_left, self.status_project, self.status_lang, self.status_indent, self.status_pos = \
+            self.status_labels
+
+    def set_status(self, text, busy=False):
+        """The colored bar at the bottom: blue when idle, orange while a program runs or is built."""
+        self.status_text, self.status_busy = text, busy
+        suffix = "Busy" if busy else ""
+        self.status_frame.config(style=f"Status{suffix}.TFrame")
+        for label in self.status_labels:
+            label.config(style=f"Status{suffix}.TLabel")
+        self.status_left.config(text=text)
+
+    def update_position(self, line, col):
+        self.status_pos.config(text=f"Ln {line}, Col {col}")
+
+    def update_project_status(self):
+        if self.project_info:
+            self.status_project.config(text=f"Project: {self.project_info.name}")
+        elif self.project:
+            self.status_project.config(text=f"Folder: {os.path.basename(self.project) or self.project}")
+        else:
+            self.status_project.config(text="")
+
+    def toggle_theme(self):
+        self.apply_theme("Light" if self.theme_name == "Dark" else "Dark")
+
+    def apply_theme(self, name):
+        self.theme_name = name
+        self.theme = THEMES[name]
+        self.theme_var.set(name)
+        save_settings(dict(load_settings(), theme=name))
+        t = self.theme
+        apply_styles(self.root, t, self.ui_font)
+        self.output.config(bg=t["panel_bg"], fg=t["fg"], insertbackground=t["fg"], selectbackground=t["select_bg"],
+                           inactiveselectbackground=t["select_bg"])
+        self.output.tag_configure("err", foreground=t["out_err"])
+        self.output.tag_configure("in", foreground=t["out_in"])
+        self.output.tag_configure("info", foreground=t["out_info"])
+        self.watch_tree.tag_configure("changed", background=t["watch_changed"])
+        for tab in self.tabs():
+            tab.restyle()
+        self.set_status(self.status_text, self.status_busy)
 
     def build_panes(self):
         t = self.theme
         self.hpane = ttk.PanedWindow(self.root, orient="horizontal")
         self.hpane.pack(fill="both", expand=True)
 
-        self.sidebar = ttk.Frame(self.hpane)
-        self.project_label = ttk.Label(self.sidebar, text="", padding=(6, 4), font=("TkDefaultFont", 9, "bold"))
-        self.project_label.grid(row=0, column=0, sticky="ew")
-        ttk.Button(self.sidebar, text="+ New file", command=self.new_project_file).grid(
-            row=0, column=1, sticky="e", padx=4)
+        self.sidebar = ttk.Frame(self.hpane, style="Side.TFrame")
+        ttk.Label(self.sidebar, text="EXPLORER", style="SideHead.TLabel", padding=(12, 8, 6, 2)).grid(
+            row=0, column=0, sticky="w")
+        ttk.Button(self.sidebar, text="+ File", style="Tool.TButton", command=self.new_project_file).grid(
+            row=0, column=1, columnspan=2, sticky="e", padx=6, pady=(6, 2))
+        self.project_label = ttk.Label(self.sidebar, text="", style="SideTitle.TLabel", padding=(12, 2, 6, 6))
+        self.project_label.grid(row=1, column=0, columnspan=3, sticky="ew")
         self.tree = ttk.Treeview(self.sidebar, show="tree", selectmode="browse")
         tree_scroll = ttk.Scrollbar(self.sidebar, orient="vertical", command=self.tree.yview)
         self.tree.config(yscrollcommand=tree_scroll.set)
-        self.tree.grid(row=1, column=0, columnspan=2, sticky="nsew")
-        tree_scroll.grid(row=1, column=2, sticky="ns")
-        self.sidebar.rowconfigure(1, weight=1)
+        self.tree.grid(row=2, column=0, columnspan=2, sticky="nsew")
+        tree_scroll.grid(row=2, column=2, sticky="ns")
+        self.sidebar.rowconfigure(2, weight=1)
         self.sidebar.columnconfigure(0, weight=1)
         self.tree.bind("<Double-1>", self.on_tree_open)
         self.tree.bind("<Return>", self.on_tree_open)
@@ -750,10 +979,10 @@ class App:
         vpane = ttk.PanedWindow(self.editor_split, orient="vertical")
         self.editor_split.add(vpane, weight=1)
 
-        # The value watcher on the right: hidden until 'Watch values' is switched on.
-        self.watch_frame = ttk.Frame(self.editor_split, width=300)
-        ttk.Label(self.watch_frame, text="Values while the program runs", padding=(6, 4),
-                  font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w")
+        # The value list on the right: hidden until 'Value list' is switched on.
+        self.watch_frame = ttk.Frame(self.editor_split, style="Side.TFrame", width=300)
+        ttk.Label(self.watch_frame, text="VALUES", style="SideHead.TLabel", padding=(12, 8, 6, 6)).grid(
+            row=0, column=0, columnspan=2, sticky="w")
         self.watch_tree = ttk.Treeview(self.watch_frame, columns=("value", "line"), show="tree headings",
                                        selectmode="browse")
         self.watch_tree.heading("#0", text="Name")
@@ -767,8 +996,7 @@ class App:
         self.watch_tree.config(yscrollcommand=watch_scroll.set)
         self.watch_tree.grid(row=1, column=0, sticky="nsew")
         watch_scroll.grid(row=1, column=1, sticky="ns")
-        self.watch_note = ttk.Label(self.watch_frame, text="", padding=(6, 4), wraplength=260,
-                                    foreground=t["out_info"])
+        self.watch_note = ttk.Label(self.watch_frame, text="", padding=(12, 6), wraplength=260, style="Side.TLabel")
         self.watch_note.grid(row=2, column=0, columnspan=2, sticky="ew")
         self.watch_frame.rowconfigure(1, weight=1)
         self.watch_frame.columnconfigure(0, weight=1)
@@ -780,24 +1008,31 @@ class App:
         self.notebook.bind("<Button-3>", self.on_tab_right_click)
         vpane.add(self.notebook, weight=3)
 
-        bottom = ttk.Frame(vpane)
-        self.output = tk.Text(bottom, font=self.font, bg=t["out_bg"], fg=t["fg"], height=9, wrap="word", bd=0,
-                              highlightthickness=0, padx=8, pady=4, state="disabled")
+        bottom = ttk.Frame(vpane, style="Panel.TFrame")
+        head = ttk.Frame(bottom, style="PanelHead.TFrame")
+        ttk.Label(head, text="OUTPUT", style="PanelTitle.TLabel", padding=(14, 7, 6, 5)).pack(side="left")
+        ttk.Button(head, text="Clear", style="Tool.TButton", command=self.clear_output).pack(
+            side="right", padx=8, pady=3)
+        head.grid(row=0, column=0, columnspan=2, sticky="ew")
+        self.output = tk.Text(bottom, font=self.font, bg=t["panel_bg"], fg=t["fg"], insertbackground=t["fg"],
+                              height=9, wrap="word", bd=0, highlightthickness=0, padx=14, pady=6,
+                              state="disabled", selectbackground=t["select_bg"],
+                              inactiveselectbackground=t["select_bg"])
         out_scroll = ttk.Scrollbar(bottom, orient="vertical", command=self.output.yview)
         self.output.config(yscrollcommand=out_scroll.set)
         self.output.tag_configure("err", foreground=t["out_err"])
         self.output.tag_configure("in", foreground=t["out_in"])
         self.output.tag_configure("info", foreground=t["out_info"])
-        entry_row = ttk.Frame(bottom, padding=(6, 4))
-        ttk.Label(entry_row, text="Input:").pack(side="left")
+        entry_row = ttk.Frame(bottom, style="Panel.TFrame", padding=(14, 4, 8, 6))
+        ttk.Label(entry_row, text="Input", style="Panel.TLabel").pack(side="left")
         self.entry = ttk.Entry(entry_row, state="disabled")
-        self.entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self.entry.pack(side="left", fill="x", expand=True, padx=(10, 0))
         self.entry.bind("<Return>", self.send_input)
-        bottom.rowconfigure(0, weight=1)
+        bottom.rowconfigure(1, weight=1)
         bottom.columnconfigure(0, weight=1)
-        self.output.grid(row=0, column=0, sticky="nsew")
-        out_scroll.grid(row=0, column=1, sticky="ns")
-        entry_row.grid(row=1, column=0, columnspan=2, sticky="ew")
+        self.output.grid(row=1, column=0, sticky="nsew")
+        out_scroll.grid(row=1, column=1, sticky="ns")
+        entry_row.grid(row=2, column=0, columnspan=2, sticky="ew")
         vpane.add(bottom, weight=1)
 
         self.tab_menu = tk.Menu(self.root, tearoff=False)
@@ -857,11 +1092,14 @@ class App:
         current = self.current()
         if current:
             self.root.title(f"{'*' if current.dirty else ''}{current.name} - {TITLE}")
+        self.update_project_status()
 
     def on_tab_switch(self):
         for t in self.tabs():
             t.completer.hide()
         self.tab_changed()
+        if self.current():
+            self.current().update_cursor()
 
     def on_tab_middle_click(self, event):
         index = self.tab_index_at(event)
@@ -1161,6 +1399,7 @@ class App:
         win.title(f"Project settings - {info.name}")
         win.transient(self.root)
         win.resizable(False, False)
+        win.configure(bg=self.theme["ui_bg"])
         frame = ttk.Frame(win, padding=14)
         frame.pack()
         name = tk.StringVar(value=info.name)
@@ -1174,7 +1413,7 @@ class App:
         ttk.Label(frame, text="Program file name").grid(row=2, column=0, sticky="w", pady=4)
         ttk.Entry(frame, textvariable=output, width=34).grid(row=2, column=1, pady=4, padx=(10, 0))
         ttk.Label(frame, text="The main program is what Build and Release turn into a Python file and a program.",
-                  foreground=self.theme["out_info"], wraplength=380).grid(row=3, column=0, columnspan=2, pady=(8, 0))
+                  wraplength=380).grid(row=3, column=0, columnspan=2, pady=(8, 0))
 
         def apply():
             old = info.path
@@ -1329,6 +1568,7 @@ class App:
 
     def set_building(self, building):
         self.building = building
+        self.set_status("Building..." if building else "Ready", building)
         state = "disabled" if building else "normal"
         for button in (self.build_button, self.release_button):
             button.config(state=state)
@@ -1434,6 +1674,7 @@ class App:
         self.run_button.config(state="disabled" if running else "normal")
         self.stop_button.config(state="normal" if running else "disabled")
         self.entry.config(state="normal" if running else "disabled")
+        self.set_status("Running..." if running else "Ready", running)
         if running:
             self.entry.focus_set()
         elif not running and self.current():
@@ -1623,7 +1864,9 @@ class App:
     def show_help(self):
         win = tk.Toplevel(self.root)
         win.title("Plain quick reference")
-        box = tk.Text(win, font=self.font, width=88, height=30, padx=10, pady=8, wrap="none", bd=0)
+        win.configure(bg=self.theme["bg"])
+        box = tk.Text(win, font=self.font, width=88, height=30, padx=14, pady=10, wrap="none", bd=0,
+                      bg=self.theme["bg"], fg=self.theme["fg"], insertbackground=self.theme["fg"])
         box.insert("1.0", CHEAT_SHEET)
         box.config(state="disabled")
         box.pack(fill="both", expand=True)
@@ -1657,8 +1900,8 @@ def selftest(app, root, report):
 def main():
     try:
         root = tk.Tk()
-        root.geometry("1100x760")
-        root.minsize(560, 420)
+        root.geometry("1240x800")
+        root.minsize(680, 460)
         args = sys.argv[1:]
         report = None
         if args[:1] == ["--selftest"]:       # used by the build checks: run the file with live values, hidden
