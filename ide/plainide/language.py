@@ -17,7 +17,8 @@ OF_HELPERS = set(OF)
 
 # The sentences of the modules are highlighted as a whole, so that names like 'size' stay ordinary names.
 PHRASES = re.compile(MODULES.highlight_regex() + r'|\btakes(?=\s*\()|\bkey(?= (?:"[^"\n]*"|\w+) is pressed)'
-                     r'|\b(?:number|text)(?=\s+of\b)|\bstep(?=\s+-?[\w.]+\s+do\b)')
+                     r'|\b(?:number|text)(?=\s+of\b)|\bstep(?=\s+-?[\w.]+\s+do\b)'
+                     r'|\bfixed(?=[ \t]*(?:\r?\n|\Z))')
 COLOR_WORD = re.compile(r"(?<=color )(?:" + "|".join(MODULES.color_names()) + r")\b")
 
 # Words that expand into a whole block when you accept them in the completion list.

@@ -1,0 +1,6 @@
+action f takes(n) do
+    if n > 0 then
+        return 1
+    end
+end
+say f(1)

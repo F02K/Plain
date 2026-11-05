@@ -90,6 +90,12 @@ class ListInit(Node):
 class Let(Node):
     name: str
     value: Node
+    fixed: bool = False         # let pi be 3.14 fixed: the name can never be changed
+
+
+@dataclass
+class Fail(Node):
+    value: Node                 # fail "message": stop with an error that 'try' can catch
 
 
 @dataclass

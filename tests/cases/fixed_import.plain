@@ -1,0 +1,11 @@
+note: fixed values of an imported file are known in the program and in all its actions
+import lib_constants
+
+action report takes(seconds) do
+    return planet + ": " + fall_speed(seconds)
+end
+
+say gravity
+say report(2)
+let double_gravity be gravity * 2 fixed
+say double_gravity

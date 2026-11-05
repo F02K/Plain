@@ -2,6 +2,7 @@
 
 CHEAT_SHEET = """\
 Variables        let health be 100          set health to health - 5
+                 let pi be 3.14159 fixed    (a value that can never change; known in every action)
 Output / input   say "Hello"                let name be input "Name?"
                  let age be input number "Age?"
 Decisions        if x > 3 then ... else if ... then ... else ... end
@@ -33,7 +34,7 @@ Windows          open window "Title" with width 640 and height 480
 Colors           red green blue yellow orange purple pink brown gray white black
                  let sky be Color(red: 20, green: 24, blue: 40)    use color sky
 Own files        import lib   (brings in the actions and types of lib.plain next to your program)
-Errors           try ... catch error then ... end
+Errors           try ... catch error then ... end      fail "message"   (your own error)
 Comments         note: this is a comment
 
 In the editor    F5 run, Shift+F5 stop, Ctrl+Space complete, Tab/Enter accept a suggestion

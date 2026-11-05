@@ -19,6 +19,7 @@ class PyGen:
         self.out = []
         self.watch = watch
         self.scope = ""   # name of the action being written, for the watcher
+        self.constants = getattr(program, "constants", [])      # set by the checker
 
     def line(self, indent, text):
         self.out.append("    " * indent + text)
@@ -31,6 +32,9 @@ class PyGen:
         for stmt in self.program.body:
             if isinstance(stmt, N.DefineStruct):
                 self.struct(stmt)
+        for stmt in self.constants:             # 'let ... fixed' values that actions can read: made first
+            self.line(0, "")
+            self.line(0, f"{var(stmt.name)} = {self.expr(stmt.value)}")
         for stmt in self.program.body:
             if isinstance(stmt, N.ActionDef):
                 self.action(stmt)
@@ -110,6 +114,8 @@ class PyGen:
             self.line(indent, "pass")
 
     def s_Let(self, s, i):
+        if s in self.constants:
+            return
         value = "[]" if isinstance(s.value, N.ListInit) else self.expr(s.value)
         self.line(i, f"{var(s.name)} = {value}")
         self.watched(i, s.name, s.line)
@@ -166,6 +172,9 @@ class PyGen:
         self.line(i, f"for {var(s.var)} in _count({self.expr(s.start)}, {self.expr(s.stop)}, {step}, {s.line}):")
         self.watched(i + 1, s.var, s.line)
         self.block(s.body, i + 1)
+
+    def s_Fail(self, s, i):
+        self.line(i, f"raise _PlainError({self.expr(s.value)}, {s.line})")
 
     def s_Stop(self, s, i):
         self.line(i, "break")

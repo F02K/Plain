@@ -1,0 +1,48 @@
+note: fail "message" stops with an error of your own; try catches it.
+let max_health be 100 fixed
+
+action heal takes(health, amount) do
+    if amount < 0 then
+        fail "Healing cannot be negative."
+    end
+    return min(health + amount, max_health)
+end
+
+action check_age takes(age) do
+    if age < 0 then
+        fail "Age " + age + " is not possible."
+    else if age > 150 then
+        fail "Nobody is that old."
+    else
+        return age
+    end
+end
+
+say heal(50, 10)
+try
+    say heal(50, -10)
+catch error then
+    say "Problem: " + error
+end
+
+for age from -1 to 200 step 100 do
+    try
+        say check_age(age)
+    catch error then
+        say error
+    end
+end
+
+try
+    try
+        fail "inner"
+    catch problem then
+        say "caught " + problem
+        fail "again: " + problem
+    end
+catch problem then
+    say "caught " + problem
+end
+
+say heal(1, -1)
+say "not reached"

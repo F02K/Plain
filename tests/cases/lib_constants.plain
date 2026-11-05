@@ -1,0 +1,7 @@
+note: a library with fixed values and an action that uses them
+let gravity be 9.81 fixed
+let planet be "Earth" fixed
+
+action fall_speed takes(seconds) do
+    return gravity * seconds
+end

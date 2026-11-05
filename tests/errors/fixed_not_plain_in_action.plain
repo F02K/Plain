@@ -1,0 +1,5 @@
+let name be input "Name?" fixed
+action hi do
+    say name
+end
+run hi()

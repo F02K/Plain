@@ -1,0 +1,23 @@
+note: Fixed values never change, and fail stops with an error of your own.
+let pi be 3.14159 fixed
+let max_health be 100 fixed
+
+action area takes(radius) do
+    if radius < 0 then
+        fail "A radius cannot be negative."
+    end
+    return pi * radius * radius
+end
+
+action heal takes(health, amount) do
+    return min(health + amount, max_health)
+end
+
+say "A circle with radius 2 has the area " + area(2)
+say "Healing 90 by 30 gives " + heal(90, 30)
+
+try
+    say area(-1)
+catch error then
+    say "Problem: " + error
+end

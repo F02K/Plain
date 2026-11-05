@@ -33,6 +33,8 @@ HELP = {
     "skip": "skip  jumps to the next round of the loop.",
     "action": "action name takes(a, b) do ... end  creates a reusable piece of code. Run it with run name(1, 2).",
     "takes": "takes(a, b)  lists the values an action needs.",
+    "fail": 'fail "message"  stops with an error of your own. try ... catch error then ... end can catch it.',
+    "fixed": "fixed  at the end of a let line: let pi be 3.14159 fixed. The value can never be changed.",
     "return": "return value  gives a value back to the caller and leaves the action.",
     "define": "define Name as ... end  creates your own type with fields.",
     "as": "as  gives a field its type, for example x as number.",
