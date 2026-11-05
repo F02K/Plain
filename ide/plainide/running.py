@@ -58,7 +58,7 @@ class RunController:
         if watch:
             self.watch_file = os.path.join(app.tmp, f"watch{run_id}.json")
             extra_env = {"PLAIN_WATCH": self.watch_file}
-        self.start(child_command() + [py_path], extra_env)
+        self.start(child_command() + [py_path], extra_env, cwd=self.base_dir_of(tab))
 
     def base_dir_of(self, tab):
         """Where 'import name' looks for files: next to the program, or in the project folder."""
@@ -77,10 +77,10 @@ class RunController:
         else:
             tab.mark_line(err.line)
 
-    def start(self, cmd, extra_env=None):
+    def start(self, cmd, extra_env=None, cwd=None):
         self.app.output.clear()
         try:
-            self.runner.start(cmd, extra_env)
+            self.runner.start(cmd, extra_env, cwd)
         except OSError as exc:
             self.set_running(False)
             self.app.output.write(f"I could not start the program: {exc}\n", "err")

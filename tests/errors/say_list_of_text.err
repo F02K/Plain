@@ -1,0 +1,2 @@
+'say' cannot show a list of text directly.
+say join(items, ", ")

@@ -173,6 +173,9 @@ class PyGen:
         self.watched(i + 1, s.var, s.line)
         self.block(s.body, i + 1)
 
+    def s_Wait(self, s, i):
+        self.line(i, f"_wait({self.expr(s.seconds)}, {s.line})")
+
     def s_Fail(self, s, i):
         self.line(i, f"raise _PlainError({self.expr(s.value)}, {s.line})")
 

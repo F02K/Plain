@@ -24,11 +24,12 @@ class Runner:
     def running(self):
         return self.proc is not None and self.proc.poll() is None
 
-    def start(self, cmd, extra_env=None):
+    def start(self, cmd, extra_env=None, cwd=None):
+        """cwd: the folder the program runs in (so that its files are found next to it)."""
         env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8", **(extra_env or {}))
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, bufsize=0, env=env,
-                                     creationflags=NO_WINDOW)
+                                     creationflags=NO_WINDOW, cwd=cwd if cwd and os.path.isdir(cwd) else None)
         threading.Thread(target=self._pump, args=(self.proc,), daemon=True).start()
 
     def _pump(self, proc):

@@ -42,8 +42,10 @@ def run_case(path, tmp, env=None):
         f.write(python_text)
     stdin_path = path[:-6] + ".in"
     stdin = read(stdin_path) if os.path.exists(stdin_path) else ""
+    work = os.path.join(tmp, name + "_work")            # the program runs here, so files it writes stay here
+    os.makedirs(work, exist_ok=True)
     result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True,
-                            encoding="utf-8", timeout=20, env=env)
+                            encoding="utf-8", timeout=20, env=env, cwd=work)
     expected = read(path[:-6] + ".out")
     if result.stdout != expected:
         return False, f"expected:{NL}{expected}{NL}got:{NL}{result.stdout}{result.stderr}"

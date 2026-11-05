@@ -20,6 +20,10 @@ CALLS = {
     "replace": ((T.TEXT, T.TEXT, T.TEXT), T.TEXT),
     "split": ((T.TEXT, T.TEXT), T.list_of(T.TEXT)),
     "join": ((T.list_of(T.TEXT), T.TEXT), T.TEXT),
+    "read_file": ((T.TEXT,), T.TEXT),
+    "write_file": ((T.TEXT, T.TEXT), T.NOTHING),        # run write_file("a.txt", "hello")
+    "append_file": ((T.TEXT, T.TEXT), T.NOTHING),
+    "file_exists": ((T.TEXT,), T.BOOLEAN),
 }
 
 # name -> (argument type, result type)
@@ -47,6 +51,10 @@ EXAMPLES = {
     "replace": 'replace("Hello", "l", "L")',
     "split": 'split("a,b,c", ",")',
     "join": 'join(words, ", ")',
+    "read_file": 'read_file("notes.txt")',
+    "write_file": 'run write_file("notes.txt", "Hello")',
+    "append_file": 'run append_file("notes.txt", "one more line")',
+    "file_exists": 'file_exists("notes.txt")',
 }
 
 # Calls that can fail at run time get the line number as an extra last argument.

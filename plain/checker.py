@@ -242,8 +242,13 @@ class Checker:
     def s_Say(self, s):
         t = self.expr(s.value)
         if t not in (T.TEXT, T.NUMBER, T.BOOLEAN, T.NOTHING, T.ANY):
-            self.error(s.value, f"'say' cannot show {self.describe(t)} directly.",
-                       "Say its fields one by one, for example: say health of player")
+            if T.is_list(t) and t[1] == T.TEXT:
+                hint = 'Join the items into one text: say join(items, ", ")'
+            elif T.is_list(t):
+                hint = "Walk through the list and say every item: for each item in items do say item end"
+            else:
+                hint = "Say its fields one by one, for example: say health of player"
+            self.error(s.value, f"'say' cannot show {self.describe(t)} directly.", hint)
 
     def s_If(self, s):
         for cond, body in s.branches:
@@ -308,6 +313,9 @@ class Checker:
             self.error(s, f"This action already returns {self.describe(inst.ret)} (line {inst.ret_line}), "
                           f"but here it returns {self.describe(t)}.",
                        "An action must always return the same kind of value.")
+
+    def s_Wait(self, s):
+        self.expect_number(self.expr(s.seconds), s.seconds, "The time to wait")
 
     def s_Fail(self, s):
         t = self.expr(s.value)

@@ -1,0 +1,29 @@
+note: wait pauses the program; read_file, write_file, append_file and file_exists work with text files.
+note: The test program runs in a temporary folder, so it makes its own file there.
+let name be "wait_and_files_test.txt"
+say file_exists(name)
+wait 0.01 seconds
+wait 0.01 second
+let pause be 0.01
+wait pause
+run write_file(name, "one" + "\n" + "two" + "\n")
+run append_file(name, "three\n")
+say file_exists(name)
+let lines be split(trim of read_file(name), "\n")
+say size of lines
+say join(lines, " + ")
+for each line in lines do
+    say upper of line
+end
+say "reading a file that does not exist:"
+try
+    say read_file("there_is_no_such_file.txt")
+catch error then
+    say error
+end
+try
+    wait -1
+catch error then
+    say error
+end
+say length of read_file(name)
