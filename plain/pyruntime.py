@@ -83,6 +83,8 @@ def _mod(a, b, line):
 def _get(items, index, line):
     i = int(index)
     if i < 0 or i >= len(items):
+        if isinstance(items, str):
+            raise _PlainError("That position does not exist in this text (the first letter is at position 0).", line)
         raise _PlainError("That list position does not exist (the first item is at position 0).", line)
     return items[i]
 
@@ -109,7 +111,7 @@ def _remove(items, value):
 
 def _of(name, fn, obj, line):
     """'name of value': a built-in helper for text and numbers, otherwise a field."""
-    if isinstance(obj, (str, float)):
+    if isinstance(obj, (str, float, bool)):
         return fn(obj, line)
     return getattr(obj, "f_" + name)
 
@@ -149,6 +151,64 @@ def _max(a, b, line=0):
     return a if a > b else b
 
 
+def _trim(text, line):
+    return text.strip()
+
+
+def _text(value, line):
+    return _fmt(value)
+
+
+def _number(text, line):
+    """number of "42": a text made of a number, as the 'input number' reads it."""
+    if not all(c in "0123456789+-.eE " for c in text):
+        raise _PlainError("That is not a number.", line)
+    try:
+        return float(text.strip(" "))
+    except ValueError:
+        raise _PlainError("That is not a number.", line)
+
+
+def _index_of(text, piece, line=0):
+    return float(text.find(piece))
+
+
+def _starts_with(text, piece, line=0):
+    return text.startswith(piece)
+
+
+def _ends_with(text, piece, line=0):
+    return text.endswith(piece)
+
+
+def _replace(text, old, new, line):
+    if old == "":
+        raise _PlainError("'replace' needs a text to look for, but it is empty.", line)
+    return text.replace(old, new)
+
+
+def _split(text, separator, line=0):
+    return list(text) if separator == "" else text.split(separator)      # "" splits into the letters
+
+
+def _join(items, separator, line=0):
+    return separator.join(items)
+
+
+def _count(start, stop, step, line):
+    """for i from 1 to 10 [step 2]: the numbers from start to stop (both included)."""
+    if step == 0:
+        raise _PlainError("The step of a 'for' loop cannot be 0.", line)
+    n = 0
+    slack = abs(step) * 1e-9            # 0.1 + 0.1 + ... may be a hair off
+    while True:
+        value = start + n * step
+        if (step > 0 and value > stop + slack) or (step < 0 and value < stop - slack):
+            return
+        yield value
+        n += 1
+
+
 def _part(text, start, count, line):
     s, c = int(start), int(count)
     if s < 0 or c < 0:
@@ -182,13 +242,7 @@ def _input(prompt):
 
 
 def _input_number(prompt, line):
-    text = _input(prompt)
-    if not all(c in "0123456789+-.eE " for c in text):
-        raise _PlainError("That is not a number.", line)
-    try:
-        return float(text.strip(" "))
-    except ValueError:
-        raise _PlainError("That is not a number.", line)
+    return _number(_input(prompt), line)
 
 
 _FINISHERS = []     # modules add a function here that runs after the program ends (see modules/window)

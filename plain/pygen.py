@@ -161,6 +161,12 @@ class PyGen:
         self.watched(i + 1, s.var, s.line)
         self.block(s.body, i + 1)
 
+    def s_ForCount(self, s, i):
+        step = self.expr(s.step) if s.step is not None else "1.0"
+        self.line(i, f"for {var(s.var)} in _count({self.expr(s.start)}, {self.expr(s.stop)}, {step}, {s.line}):")
+        self.watched(i + 1, s.var, s.line)
+        self.block(s.body, i + 1)
+
     def s_Stop(self, s, i):
         self.line(i, "break")
 

@@ -1,0 +1,53 @@
+let t be "  Hello, Plain World!  "
+say "[" + trim of t + "]"
+say index_of("Hello", "ll")
+say index_of("Hello", "z")
+say starts_with("Hello", "He")
+say ends_with("Hello", "lo")
+say replace("a-b-c", "-", "+")
+let words be split("red,green,blue", ",")
+say size of words
+say join(words, " | ")
+say words at 1
+let letters be split("abc", "")
+say join(letters, "-")
+say number of "42" + 1
+say number of " 3.5 " * 2
+say text of 42 + "!"
+say text of true
+say text of "x"
+let count be 0
+for each letter in "banana" do
+    if letter = "a" then
+        set count to count + 1
+    end
+end
+say "a appears " + count + " times"
+let word be "plain"
+let reversed be ""
+for i from length of word - 1 to 0 step -1 do
+    set reversed to reversed + word at i
+end
+say reversed
+for i from 1 to 3 do
+    for j from 1 to 3 do
+        if j = 2 then
+            skip
+        end
+        say i * j
+    end
+end
+say "-- half steps"
+for x from 0 to 1 step 0.1 do
+    say x
+end
+try
+    say number of "abc"
+catch error then
+    say "error: " + error
+end
+try
+    say "hello" at 9
+catch error then
+    say "error: " + error
+end

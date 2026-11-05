@@ -162,6 +162,15 @@ class IdeTest(unittest.TestCase):
         self.assertEqual(len(docs.tabs()), 1)
         self.assertIsNone(docs.current().path)
 
+    def test_type_names_and_helpers_have_their_own_colors(self):
+        doc = self.app.documents.current()
+        doc.set_text('define P as\n    n as number\nend\nsay number of "4"\nfor i from 10 to 1 step -1 do\nend\n')
+        self.pump()
+        helpers = [str(r) for r in doc.text.tag_ranges("helper")]
+        self.assertNotIn("2.9", helpers)                       # 'number' in 'n as number' is only a type
+        self.assertIn("4.4", helpers)                          # 'number' in 'number of' is a helper
+        self.assertIn("5.23", helpers)                         # 'step' in a counting loop
+
     def test_a_text_file_opens_as_text(self):
         self.open_project()
         doc = self.app.documents.open_path(self.path("notes.txt"))

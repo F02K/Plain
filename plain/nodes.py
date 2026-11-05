@@ -129,6 +129,15 @@ class ForEach(Node):
 
 
 @dataclass
+class ForCount(Node):
+    var: str
+    start: Node
+    stop: Node
+    step: Optional[Node]
+    body: List[Node]
+
+
+@dataclass
 class Stop(Node):
     pass
 

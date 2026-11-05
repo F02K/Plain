@@ -416,6 +416,11 @@ class Parser:
 
     def parse_for(self):
         start = self.advance()
+        if self.cur.kind == "NAME" and self.peek().is_kw("from"):
+            return self.parse_for_count(start)
+        if not self.cur.is_kw("each"):
+            self.error(self.cur, f"I expected 'each' or a name here but found {describe(self.cur)}.",
+                       "Write: for each item in items do    or    for i from 1 to 10 do")
         self.expect_kw("each", "Write: for each item in items do")
         var = self.expect_name("a variable name")
         self.expect_kw("in", "Write: for each item in items do")
@@ -425,6 +430,24 @@ class Parser:
         self.expect_kw("end")
         self.end_statement()
         return N.ForEach(var.value, iterable, body, line=start.line, col=start.col)
+
+    def parse_for_count(self, start):
+        """for i from 1 to 10 do ... end     (optional: step 2, or step -1 to count down)"""
+        hint = "Write: for i from 1 to 10 do    or    for i from 10 to 1 step -1 do"
+        var = self.advance()
+        self.expect_kw("from", hint)
+        first = self.parse_expr()
+        self.expect_kw("to", hint)
+        last = self.parse_expr()
+        step = None
+        if word(self.cur, "step"):
+            self.advance()
+            step = self.parse_expr()
+        self.expect_kw("do", hint)
+        body = self.parse_block(("end",), start, "'for'")
+        self.expect_kw("end")
+        self.end_statement()
+        return N.ForCount(var.value, first, last, step, body, line=start.line, col=start.col)
 
     def parse_stop(self):
         start = self.advance()

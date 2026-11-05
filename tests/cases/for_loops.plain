@@ -1,0 +1,40 @@
+note: Counting loops: for i from 1 to 10 [step 2]
+for i from 1 to 5 do
+    say i
+end
+note: counting down needs a negative step
+for i from 10 to 0 step -5 do
+    say i
+end
+note: the end is included; nothing happens when the start is already past it
+for i from 5 to 1 do
+    say "never"
+end
+for i from 1 to 1 do
+    say "once"
+end
+note: stop and skip work, and so does a calculation in the head
+let total be 0
+for i from 1 to 10 do
+    if i mod 2 = 0 then
+        skip
+    end
+    if i > 7 then
+        stop
+    end
+    set total to total + i
+end
+say total
+let n be 3
+for i from n - 1 to n * 2 do
+    say i
+end
+note: the letters of a text, and one letter at a position
+for each letter in "abc" do
+    say letter + letter
+end
+say "plain" at 4
+say "step is 0:"
+for i from 1 to 3 step 0 do
+    say i
+end

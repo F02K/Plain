@@ -208,6 +208,16 @@ class Checker:
         self.loop_body(s.body)
         self.fn.scopes.pop()
 
+    def s_ForCount(self, s):
+        self.expect_number(self.expr(s.start), s.start, "The start of a 'for' loop")
+        self.expect_number(self.expr(s.stop), s.stop, "The end of a 'for' loop")
+        if s.step is not None:
+            self.expect_number(self.expr(s.step), s.step, "The step of a 'for' loop")
+        self.fn.scopes.append({})
+        self.declare(s.var, T.NUMBER, s)
+        self.loop_body(s.body)
+        self.fn.scopes.pop()
+
     def loop_body(self, body):
         self.fn.loops += 1
         self.block(body)
@@ -356,8 +366,10 @@ class Checker:
             return T.NUMBER
         if e.name in L.OF and not T.is_struct(ot):
             want, result = L.OF[e.name]
-            if ot != want:
-                self.error(e, f"'{e.name} of ...' needs {self.describe(want)}, but this is {self.describe(ot)}.")
+            wanted = want if isinstance(want, list) else [want]
+            if ot not in wanted:
+                self.error(e, f"'{e.name} of ...' needs {' or '.join(self.describe(w) for w in wanted)}, "
+                              f"but this is {self.describe(ot)}.")
             return result
         return self.field_type(ot, e)
 

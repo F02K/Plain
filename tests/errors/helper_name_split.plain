@@ -1,0 +1,3 @@
+action split takes(a) do
+    say a
+end

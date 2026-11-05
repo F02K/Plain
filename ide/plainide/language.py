@@ -10,12 +10,14 @@ NEW_PROGRAM = 'say "Hello, world!"\n'
 INDENT = "    "
 OPENERS = re.compile(r"\b(then|do|as|times)$")
 WORD_BEFORE_CURSOR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*$")
+TYPE_WORDS = {"number", "text", "boolean"}      # 'number of "42"' is a helper, but 'x as number' is a type
 HELPER_CALLS = set(CALLS)
-HELPERS = HELPER_CALLS | set(OF)
+HELPERS = HELPER_CALLS | (set(OF) - TYPE_WORDS)
 OF_HELPERS = set(OF)
 
 # The sentences of the modules are highlighted as a whole, so that names like 'size' stay ordinary names.
-PHRASES = re.compile(MODULES.highlight_regex() + r'|\btakes(?=\s*\()|\bkey(?= (?:"[^"\n]*"|\w+) is pressed)')
+PHRASES = re.compile(MODULES.highlight_regex() + r'|\btakes(?=\s*\()|\bkey(?= (?:"[^"\n]*"|\w+) is pressed)'
+                     r'|\b(?:number|text)(?=\s+of\b)|\bstep(?=\s+-?[\w.]+\s+do\b)')
 COLOR_WORD = re.compile(r"(?<=color )(?:" + "|".join(MODULES.color_names()) + r")\b")
 
 # Words that expand into a whole block when you accept them in the completion list.

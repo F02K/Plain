@@ -14,6 +14,12 @@ CALLS = {
     "max": ((T.NUMBER, T.NUMBER), T.NUMBER),
     "part": ((T.TEXT, T.NUMBER, T.NUMBER), T.TEXT),
     "contains": ((T.TEXT, T.TEXT), T.BOOLEAN),
+    "index_of": ((T.TEXT, T.TEXT), T.NUMBER),
+    "starts_with": ((T.TEXT, T.TEXT), T.BOOLEAN),
+    "ends_with": ((T.TEXT, T.TEXT), T.BOOLEAN),
+    "replace": ((T.TEXT, T.TEXT, T.TEXT), T.TEXT),
+    "split": ((T.TEXT, T.TEXT), T.list_of(T.TEXT)),
+    "join": ((T.list_of(T.TEXT), T.TEXT), T.TEXT),
 }
 
 # name -> (argument type, result type)
@@ -24,6 +30,9 @@ OF = {
     "round": (T.NUMBER, T.NUMBER),
     "abs": (T.NUMBER, T.NUMBER),
     "sqrt": (T.NUMBER, T.NUMBER),
+    "trim": (T.TEXT, T.TEXT),
+    "number": (T.TEXT, T.NUMBER),                       # number of "42" is 42
+    "text": ([T.NUMBER, T.BOOLEAN, T.TEXT], T.TEXT),    # text of 42 is "42"
 }
 
 EXAMPLES = {
@@ -32,7 +41,13 @@ EXAMPLES = {
     "max": "max(3, 8)",
     "part": 'part("Hello", 0, 2)',
     "contains": 'contains("Hello", "ell") or contains(scores, 10)',
+    "index_of": 'index_of("Hello", "ll")',
+    "starts_with": 'starts_with("Hello", "He")',
+    "ends_with": 'ends_with("Hello", "lo")',
+    "replace": 'replace("Hello", "l", "L")',
+    "split": 'split("a,b,c", ",")',
+    "join": 'join(words, ", ")',
 }
 
 # Calls that can fail at run time get the line number as an extra last argument.
-NEEDS_LINE = ("random", "part")
+NEEDS_LINE = ("random", "part", "replace", "number")

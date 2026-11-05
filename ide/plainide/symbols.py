@@ -25,7 +25,8 @@ HELP = {
     "while": "while condition do ... end  repeats the lines as long as the condition is true.",
     "do": "do  ends the head of a while, for each or action.",
     "run": "run name(values)  runs an action.",
-    "for": "for each item in items do ... end  runs the lines once for every item of a list.",
+    "for": "for each item in items do ... end  runs the lines for every item of a list (or letter of a text).  "
+           "for i from 1 to 10 do ... end  counts; add step 2 or step -1 to count differently.",
     "each": "each  belongs to for each.",
     "in": "in  names the list that for each walks through.",
     "stop": "stop  leaves the loop right now.",
@@ -40,7 +41,7 @@ HELP = {
     "at": "list at 0  is the item at a position (the first is 0). In draw commands it gives the position.",
     "add": "add value to list  puts a value at the end of a list.",
     "remove": "remove value from list, or remove at 0 from list.",
-    "from": "from  belongs to remove (and to draw line).",
+    "from": "from  belongs to remove, to draw line and to for i from 1 to 10.",
     "sort": "sort list  puts the items in order.",
     "try": "try ... catch error then ... end  runs the lines and handles a run-time error.",
     "catch": "catch error then  runs when something inside try went wrong; error holds the message.",
@@ -154,6 +155,8 @@ def analyze(source, line, column):
             return "variable"
         if prev == "each" and previous(i, 2) == "for":
             return "loop"
+        if prev == "for" and i + 1 < len(words) and words[i + 1][0] == "from":
+            return "loop"           # for i from 1 to 10 do
         if prev == "catch":
             return "error"
         if prev == "action":
