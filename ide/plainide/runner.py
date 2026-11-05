@@ -11,8 +11,13 @@ from .paths import FROZEN, LAUNCHER, NO_WINDOW
 
 
 def child_command():
-    """The command that runs a translated Python file: the IDE itself, in 'run' mode (see plain_ide.py)."""
-    return [sys.executable, "--run"] if FROZEN else [sys.executable, LAUNCHER, "--run"]
+    """The command that runs a translated Python file: the IDE itself, in 'run' mode (see plain_ide.py).
+    Started from the source folder it is plain_ide.py; installed with pip it is 'python -m plainide'."""
+    if FROZEN:
+        return [sys.executable, "--run"]
+    if os.path.isfile(LAUNCHER):
+        return [sys.executable, LAUNCHER, "--run"]
+    return [sys.executable, "-m", "plainide", "--run"]
 
 
 class Runner:

@@ -40,6 +40,11 @@ Push a tag such as `v0.2.0` (or start the *release* workflow by hand on GitHub).
 creates a **draft** release. Check the draft, then publish it.
 To build locally: `pip install pyinstaller`, then `python ide/build.py` (the IDE) and `python packaging/build_cli.py` (the `plain` program).
 
+## Version
+
+The version number is in one place: `plain/__init__.py` (`__version__`). The `plain` command, the IDE and `pyproject.toml`
+all read it from there; `tests/run_tests.py` checks that they agree.
+
 ## The IDE
 
 The IDE is the package `ide/plainide/` (see [ide/README.md](ide/README.md#how-the-code-is-organized) for the map of files).

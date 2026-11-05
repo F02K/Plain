@@ -52,7 +52,9 @@ cd Plain
 ```
 
 On Windows use `python` (or `py`) instead of `python3`.
-Optional: `pip install .` adds a `plain` command. For an editor that looks like VS Code (project Explorer, tabs, Run button, live values; handy in classrooms) see [`ide/`](ide/README.md). Otherwise use `python3 -m plain`.
+Optional: `pip install .` adds the commands `plain` (the language) and `plain-ide` (the editor). Both come with the same
+version number (`plain --version`). The IDE looks like VS Code (project Explorer, tabs, find and replace, Run button, live values;
+handy in classrooms), see [`ide/`](ide/README.md). Without installing, use `python3 -m plain` and `python3 ide/plain_ide.py`.
 
 ## Usage
 

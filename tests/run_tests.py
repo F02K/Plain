@@ -11,6 +11,7 @@ Usage: python3 tests/run_tests.py
 
 import glob
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -117,10 +118,27 @@ def project_checks():
     return True, ""
 
 
+def packaging_checks():
+    """One version number (plain/__init__.py) for the language, the command and the IDE; the IDE is in the package."""
+    import plain
+    from plain import cli
+    sys.path.insert(0, os.path.join(ROOT, "ide"))
+    import plainide
+    text = read(os.path.join(ROOT, "pyproject.toml"))
+    if 'dynamic = ["version"]' not in text or re.search(r'^version\s*=\s*"', text, re.M):
+        return False, "pyproject.toml must take the version from plain.__version__"
+    if '"plainide"' not in text or "plain-ide" not in text:
+        return False, "pyproject.toml must include the IDE package and the plain-ide command"
+    if not (plain.__version__ == cli.VERSION == plainide.VERSION):
+        return False, f"versions differ: {plain.__version__}, {cli.VERSION}, {plainide.VERSION}"
+    return True, ""
+
+
 def main():
     failures = 0
-    total = 2
-    for label, check in (("ide/plainide/symbols.py", symbol_checks), ("ide/plainide/projects.py", project_checks)):
+    total = 3
+    for label, check in (("ide/plainide/symbols.py", symbol_checks), ("ide/plainide/projects.py", project_checks),
+                         ("pyproject.toml (version, IDE package)", packaging_checks)):
         ok, detail = check()
         print(("PASS " if ok else "FAIL ") + label)
         if not ok:
