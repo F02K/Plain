@@ -174,8 +174,8 @@ Helpers with one value are written `name of value`, like fields:
 | Helper | Gives | Example |
 | --- | --- | --- |
 | `length of text` | number of characters | `length of "héllo"` is `5` |
-| `upper of text` / `lower of text` | text in capitals / small letters (only a-z change) | `upper of name` |
-| `round of number` | nearest whole number (.5 rounds up) | `round of 2.5` is `3` |
+| `upper of text` / `lower of text` | text in capitals / small letters (umlauts too; `ß` stays) | `upper of name` |
+| `round of number` | nearest whole number (halves go away from zero) | `round of 2.5` is `3`, `round of -2.5` is `-3` |
 | `abs of number` | the number without its sign | `abs of -7` is `7` |
 | `sqrt of number` | square root (negative numbers are an error) | `sqrt of 16` is `4` |
 

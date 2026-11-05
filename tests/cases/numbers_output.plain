@@ -1,0 +1,31 @@
+note: Whole numbers are written in full, never as 1e+18 or -0.
+let f be 1
+let i be 1
+while i <= 20 do
+    set f to f * i
+    set i to i + 1
+end
+say f
+say 100000000000000000000
+say -0
+say 2.5 - 2.5
+say 1 / 10000000
+say 0.1 + 0.2
+say 1 / 3
+say 1000000 * 1000000 * 1000000 * 1000000
+say "n = " + f
+say 7 / 2
+
+note: mod follows the divisor, like in maths
+say 7 mod 3
+say -7 mod 3
+say 7 mod -3
+say -7 mod -3
+
+note: round sends halves away from zero
+say round of 2.5
+say round of -2.5
+say round of 2.4
+say round of -2.4
+say upper of "äöü ß"
+say lower of "ÄÖÜ"

@@ -8,6 +8,7 @@ PRELUDE = '''\
 import math
 import random as _rng
 import sys
+from decimal import Decimal as _Decimal
 
 sys.setrecursionlimit(10000)
 try:
@@ -24,6 +25,22 @@ class _PlainError(Exception):
         self.line = line
 
 
+def _num(value):
+    """A number as text: whole numbers in full (20! is 2432902008176640000), no 1e-07, no -0."""
+    if value == 0:
+        return "0"
+    if value != value:
+        return "not a number"
+    if value in (math.inf, -math.inf):
+        return "infinity" if value > 0 else "-infinity"
+    if value == int(value) and abs(value) < 1e21:
+        return str(int(value))
+    text = "%.15g" % value
+    if "e" in text and abs(value) < 1:
+        text = format(_Decimal(text), "f")      # 0.0000001 instead of 1e-07
+    return text
+
+
 def _fmt(value):
     """Turn any Plain value into text."""
     if value is True:
@@ -33,7 +50,7 @@ def _fmt(value):
     if value is None:
         return "nothing"
     if isinstance(value, float):
-        return "%.15g" % value
+        return _num(value)
     return value
 
 
@@ -60,7 +77,7 @@ def _div(a, b, line):
 def _mod(a, b, line):
     if b == 0:
         raise _PlainError("Cannot use mod with zero.", line)
-    return math.fmod(a, b)
+    return a % b            # like in maths: the result has the sign of the divisor, so -7 mod 3 is 2
 
 
 def _get(items, index, line):
@@ -102,15 +119,16 @@ def _length(text, line):
 
 
 def _upper(text, line):
-    return "".join(c.upper() if "a" <= c <= "z" else c for c in text)
+    return "".join(c.upper() if len(c.upper()) == 1 else c for c in text)      # also umlauts, but ß stays
 
 
 def _lower(text, line):
-    return "".join(c.lower() if "A" <= c <= "Z" else c for c in text)
+    return "".join(c.lower() if len(c.lower()) == 1 else c for c in text)
 
 
 def _round(x, line):
-    return float(math.floor(x + 0.5))
+    """Halves go away from zero: 2.5 -> 3 and -2.5 -> -3."""
+    return float(math.copysign(math.floor(abs(x) + 0.5), x))
 
 
 def _abs(x, line):
@@ -228,7 +246,7 @@ def _wfmt(value, depth=0):
     if value is None:
         return "nothing"
     if isinstance(value, float):
-        return "%.15g" % value
+        return _num(value)
     if isinstance(value, str):
         text = value if len(value) <= 30 else value[:27] + "..."
         return '"' + text + '"'

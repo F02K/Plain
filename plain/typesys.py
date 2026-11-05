@@ -9,6 +9,8 @@ NUMBER = "number"
 TEXT = "text"
 BOOLEAN = "boolean"
 NOTHING = "nothing"
+ANY = "any"         # only used while checking an action that is never called: its values are not known
+
 
 PRIMITIVES = (NUMBER, TEXT, BOOLEAN)
 

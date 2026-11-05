@@ -1,0 +1,6 @@
+action helper takes(a, b) do
+    say a + b
+end
+action other do
+    run helper(1)
+end

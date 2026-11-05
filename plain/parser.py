@@ -1,12 +1,13 @@
 """Parser: turns tokens into a syntax tree (recursive descent)."""
 
 import copy
+import difflib
 
 from . import modules as M
 from . import nodes as N
 from . import typesys as T
 from .errors import PlainError
-from .lexer import describe
+from .lexer import KEYWORDS, describe
 
 BLOCK_END = ("end", "else", "catch")
 COMPARE_OPS = ("=", "<", ">", "<=", ">=")
@@ -48,6 +49,8 @@ class Parser:
     def expect_kw(self, word, hint=None):
         tok = self.cur
         if not tok.is_kw(word):
+            if tok.kind == "NAME" and tok.value.lower() == word:
+                hint = f"Keywords are written with small letters: {word}"
             self.error(tok, f"I expected '{word}' here but found {describe(tok)}.", hint)
         return self.advance()
 
@@ -73,8 +76,14 @@ class Parser:
         elif tok.kind == "EOF" or tok.is_kw(*BLOCK_END):
             pass
         else:
-            self.error(tok, f"I did not expect {describe(tok)} here.",
-                       "Every statement goes on its own line.")
+            before = self.toks[self.i - 1] if self.i else None
+            hint = "Every statement goes on its own line."
+            if before is not None and before.kind == "NAME" and tok.kind in ("NAME", "TEXT", "NUMBER"):
+                hint = (f"I do not know a command or helper called '{before.value}' that goes with {describe(tok)}. "
+                        "Check the spelling. Values are joined with +, and every statement goes on its own line.")
+            if tok.kind == "NAME" and tok.value.lower() in KEYWORDS:
+                hint = f"Keywords are written with small letters: {tok.value.lower()}"
+            self.error(tok, f"I did not expect {describe(tok)} here.", hint)
 
     # ---- program and blocks ------------------------------------------------
 
@@ -143,6 +152,9 @@ class Parser:
                 hint = "To run an action write: run name(values). 'do' only ends the head of a while, for each or action."
             self.error(tok, f"I did not expect {describe(tok)} here.", hint)
         if tok.kind == "NAME":
+            if tok.value.lower() in KEYWORDS and tok.value != tok.value.lower():
+                self.error(tok, f"'{tok.value}' should be written with small letters.",
+                           f"Keywords are written with small letters: {tok.value.lower()}")
             sentence = self.parse_module_command()
             if sentence is not None:
                 return sentence
@@ -240,6 +252,14 @@ class Parser:
         if self.peek().is_sym("="):
             self.error(self.peek(), "'=' only compares values in Plain.",
                        f"To change a variable write: set {start.value} to ...")
+        following = self.peek()
+        if start.kind == "NAME" and following.kind in ("NAME", "TEXT", "NUMBER") and not following.is_kw("of", "at"):
+            known = sorted(KEYWORDS - {"be", "to", "then", "do", "end", "else", "in", "as", "of", "at", "from", "times",
+                                       "each", "catch", "and", "or", "not", "mod", "true", "false", "nothing", "list"})
+            close = difflib.get_close_matches(start.value, known, n=1)
+            hint = (f"Did you mean '{close[0]}'?" if close else
+                    "The commands are: " + ", ".join(known) + ".")
+            self.error(start, f"I do not know a command called '{start.value}'.", hint)
         expr = self.parse_expr()
         if isinstance(expr, N.Call) and start.kind == "NAME" and start.value == expr.name:
             self.error(start, f"To run the action '{start.value}' start the line with 'run'.",

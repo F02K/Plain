@@ -1,0 +1,2 @@
+The action 'pick' gives back a number (line 3), but it can also end without a 'return'.
+Add a 'return' at the very end
