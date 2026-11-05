@@ -2,7 +2,7 @@
 
 A complete description of Plain. New to the language? Start with [Getting started](getting-started.md).
 
-**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Built-in helpers - Modules - Errors - Reserved words
+**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Text - Output and input - Built-in helpers - Modules and your own files - Errors - Reserved words
 
 ## Types
 
@@ -45,6 +45,8 @@ Creating a variable with a name that already exists is an error.
 | 5 | `not` |
 | 6 (lowest) | `and`, `or` |
 
+- Numbers are written in full: `20!` is `2432902008176640000`, and `1 / 10000000` is `0.0000001`.
+- `mod` follows the divisor, like in maths: `7 mod 3` is `1`, `-7 mod 3` is `2`, `7 mod -3` is `-2`.
 - `=` compares (numbers, text, booleans; things and lists compare identity).
 - `+` adds numbers or joins text. If one side is text, the other side (number or boolean) is turned into text.
 - `and` and `or` cannot be mixed without parentheses: `(a and b) or c`.
@@ -75,9 +77,25 @@ for each enemy in enemies do
     end
     say name of enemy
 end
+
+for i from 1 to 10 do          note: counts 1, 2, ... 10 (the end is included)
+    say i
+end
+
+for i from 10 to 0 step -2 do  note: 10, 8, 6, 4, 2, 0
+    say i
+end
+
+for each letter in "abc" do    note: a text is walked letter by letter
+    say letter
+end
 ```
 
 `stop` leaves the innermost loop, `skip` jumps to its next round.
+
+A counting loop `for i from a to b` runs `i` from `a` to `b` in steps of 1; nothing happens when `a` is already past `b`.
+Add `step` to count in other steps (`step 2`, `step 0.5`) or downwards (`step -1`). The step cannot be 0.
+`step` is only a special word inside a `for` line, so it still works as a name of your own.
 
 ## Actions (functions)
 
@@ -97,6 +115,9 @@ run heal(hero, 20)
   calls and compiles one version of the action for each combination of types.
 - `return value` gives a value back. Without `return`, an action gives back `nothing`.
 - An action always returns the same type.
+- If an action gives back a value somewhere, every way through it must end with a `return`
+  (put one at the very end, or an `else` branch that returns). Plain tells you when one is missing.
+- An action that is never called is still checked, so a mistake in it shows up at once and not only when you use it.
 - Recursion is allowed; put the base-case `return` before the recursive call.
 
 ## Things (structs)
@@ -132,6 +153,30 @@ say contains(scores, 10)       note: true if the list has that value
 
 `sort` works on lists of numbers and lists of text. `contains` also works on text
 (see Built-in helpers). Using a position that does not exist is an error.
+
+## Text
+
+A text is a row of letters; the first letter is at position 0.
+
+```
+let word be "plain"
+say word at 0                       note: p
+say length of word                  note: 5
+for each letter in word do
+    say upper of letter
+end
+
+let parts be split("red,green,blue", ",")     note: a list of text
+say join(parts, " and ")                      note: red and green and blue
+say replace("a-b-c", "-", "+")                note: a+b+c
+say number of "42" + 1                        note: 43   (text -> number)
+say "Score: " + text of 42                    note: 42 becomes text (a number is also joined to text by +)
+```
+
+- A text cannot be changed letter by letter. Build a new one: `set word to part(word, 0, 2) + "x"`.
+- `number of text` reads a number from a text, like `input number` does; anything else is the error `That is not a number.`
+  (catch it with `try`).
+- `split(text, "")` splits into single letters; `join` needs a list of text.
 
 ## Output and input
 
@@ -178,6 +223,9 @@ Helpers with one value are written `name of value`, like fields:
 | `round of number` | nearest whole number (halves go away from zero) | `round of 2.5` is `3`, `round of -2.5` is `-3` |
 | `abs of number` | the number without its sign | `abs of -7` is `7` |
 | `sqrt of number` | square root (negative numbers are an error) | `sqrt of 16` is `4` |
+| `trim of text` | the text without spaces and line breaks at both ends | `trim of "  hi "` is `hi` |
+| `number of text` | the number in a text (an error when it is not a number) | `number of "3.5"` is `3.5` |
+| `text of value` | a number or boolean as text | `text of 42` is `42` |
 
 `of` binds tighter than the operators, so `round of x / 2` means `(round of x) / 2`.
 Write `round of (x / 2)` to round the result.
@@ -190,11 +238,16 @@ Helpers with more values use brackets:
 | `min(a, b)` / `max(a, b)` | the smaller / bigger number | `max(health, 0)` |
 | `part(text, start, count)` | `count` characters from position `start` (first is 0) | `part("Hello", 1, 3)` is `ell` |
 | `contains(text, piece)` | `true` if `piece` is inside `text` (also `contains(list, value)`) | `contains(name, "an")` |
+| `index_of(text, piece)` | position of the first `piece` in `text`, or `-1` | `index_of("Hello", "ll")` is `2` |
+| `starts_with(text, piece)` / `ends_with(text, piece)` | `true` if the text begins / ends with `piece` | `ends_with("a.plain", ".plain")` |
+| `replace(text, old, new)` | every `old` replaced by `new` | `replace("a-b", "-", "+")` is `a+b` |
+| `split(text, separator)` | a list of text; the separator `""` gives the letters | `split("a,b", ",")` |
+| `join(list, separator)` | the items of a list of text as one text | `join(words, ", ")` |
 
 These names cannot be used for your own actions or types. A thing may still have a field
 called `length` and so on: `length of box` reads the field when `box` is a thing.
 
-## Modules
+## Modules and your own files
 
 Extras that are not part of the language itself come as modules. A program asks for them with `import` in its
 first lines:
@@ -211,8 +264,36 @@ while window is open do
 end
 ```
 
-The only module so far is `window` (windows, drawing, keys and mouse). Its sentences, the colors and how to write
-your own module are in [Modules](modules.md).
+The only built-in module so far is `window` (windows, drawing, keys and mouse). Its sentences, the colors and how to
+write your own module are in [Modules](modules.md).
+
+**Your own files.** A big program can be split into several files. `import name` brings in the actions and types of
+`name.plain`, which lies in the same folder as your program (the IDE also looks in the project folder):
+
+```
+note: shapes.plain - a library: it may only hold import, define and action
+define Point as
+    x as number
+    y as number
+end
+
+action distance takes(a, b) do
+    return sqrt of ((x of a - x of b) * (x of a - x of b) + (y of a - y of b) * (y of a - y of b))
+end
+```
+
+```
+note: main.plain
+import shapes
+
+say distance(Point(x: 0, y: 0), Point(x: 6, y: 8))      note: 10
+```
+
+- The imported names are used as if they were written in your program; all names are shared, so a name can be
+  used only once (Plain tells you where the first one is).
+- A file can import other files, but not in a circle. Every file is read once.
+- If the mistake is inside the imported file, the message shows that file and line (the IDE opens it).
+- The imports go in the first lines. A built-in module wins over a file with the same name.
 
 ## Errors
 
@@ -233,8 +314,8 @@ Without `try`, a runtime error stops the program with the line number and a reas
 action run return define as list of at add remove from sort try catch import and or not mod true
 false nothing` (`note:` starts a comment).
 
-## Differences from the first draft of the specification
+`takes` and `step` are only special in the place where they belong, so they still work as names of your own.
 
-Small additions needed to make real programs possible: `not`, `mod`,
-`set list at i to ...`, `input` (instead of `ask`), the error message in `catch name then`, and `\n`-style
-escapes in text.
+The built-in helpers (`length`, `upper`, `lower`, `round`, `abs`, `sqrt`, `trim`, `number`, `text`, `random`, `min`,
+`max`, `part`, `contains`, `index_of`, `starts_with`, `ends_with`, `replace`, `split`, `join`) cannot be used as names of
+your own actions or types.
