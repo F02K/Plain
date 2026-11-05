@@ -1,0 +1,11 @@
+note: import brings in the actions and types of another file next to this program.
+note: lib_mathx.plain imports lib_shapes.plain itself, and the main program imports both.
+import lib_shapes
+import lib_mathx
+
+let a be Point(x: 0, y: 0)
+let b be Point(x: 6, y: 8)
+say distance(a, b)
+say describe(b)
+say describe(middle(a, b))
+say square(7)

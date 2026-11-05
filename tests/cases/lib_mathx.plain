@@ -1,0 +1,9 @@
+import lib_shapes
+
+action middle takes(a, b) do
+    return Point(x: (x of a + x of b) / 2, y: (y of a + y of b) / 2)
+end
+
+action square takes(n) do
+    return n * n
+end

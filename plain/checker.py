@@ -6,6 +6,7 @@ time, so a program that passes the checker cannot mix up numbers, text and lists
 """
 
 import difflib
+import os
 
 from . import library as L
 from . import modules as M
@@ -17,8 +18,9 @@ from .errors import PlainError
 class FnCtx:
     """What the checker knows about the code it is looking at right now."""
 
-    def __init__(self, inst=None):
+    def __init__(self, inst=None, file=None):
         self.inst = inst
+        self.file = file            # the imported file the code comes from (None: the program itself)
         self.scopes = [{}]
         self.loops = 0
         self.is_main = inst is None
@@ -37,12 +39,14 @@ class Checker:
         self.actions = {}
         self.instances = {}
         self.fn = None
+        self.cur_file = None        # the file of the definition that is being looked at
 
     # ---- small helpers -------------------------------------------------------
 
     def error(self, node, message, hint=None):
+        file = (self.fn.file if self.fn else None) or getattr(node, "file", None) or self.cur_file
         raise PlainError(message, getattr(node, "line", None) or None,
-                         getattr(node, "col", None) or None, hint)
+                         getattr(node, "col", None) or None, hint, file=file)
 
     def check_type(self, t, node):
         if T.is_list(t):
@@ -98,7 +102,8 @@ class Checker:
             if isinstance(stmt, N.DefineStruct):
                 if stmt.name in self.structs or stmt.name in T.PRIMITIVES or stmt.name == "nothing" \
                         or stmt.name in L.CALLS:
-                    self.error(stmt, f"The type '{stmt.name}' is defined twice or is a built-in name.")
+                    self.error(stmt, f"The type '{stmt.name}' is defined twice or is a built-in name.",
+                               self.first_definition(stmt.name))
                 self.structs[stmt.name] = stmt
         for stmt in self.program.body:
             if isinstance(stmt, N.ActionDef):
@@ -106,20 +111,31 @@ class Checker:
                     self.error(stmt, f"'{stmt.name}' is a built-in helper, so it cannot be used as an action name.",
                                "Pick another name.")
                 if stmt.name in self.actions or stmt.name in self.structs:
-                    self.error(stmt, f"The name '{stmt.name}' is already used by an action or a type.")
+                    self.error(stmt, f"The name '{stmt.name}' is already used by an action or a type.",
+                               self.first_definition(stmt.name))
                 if len(set(stmt.params)) != len(stmt.params):
                     self.error(stmt, "Two parameters have the same name.")
                 self.actions[stmt.name] = stmt
         for name, sd in list(self.structs.items()):
             fields = {}
+            self.cur_file = sd.file
             if not sd.fields:
                 self.error(sd, f"The type '{name}' has no fields.")
             for fname, ftype, fline in sd.fields:
                 if fname in fields:
-                    raise PlainError(f"The field '{fname}' appears twice in '{name}'.", fline)
+                    self.error(N.Node(line=fline), f"The field '{fname}' appears twice in '{name}'.")
                 self.check_type(ftype, N.Node(line=fline))
                 fields[fname] = ftype
             sd.layout = fields
+        self.cur_file = None
+
+    def first_definition(self, name):
+        """Where a name was defined first, for the hint of an error about a name that is used twice."""
+        node = self.structs.get(name) or self.actions.get(name)
+        if node is None:
+            return None
+        where = f"the file {os.path.basename(node.file)}" if node.file else "this program"
+        return f"'{name}' is already defined in {where}, line {node.line}. Every name can be used only once."
 
     # ---- statements ----------------------------------------------------------
 
@@ -461,7 +477,7 @@ class Checker:
         if key in self.instances:
             return self.instances[key]
         inst = self.instances[key] = Instance()
-        ctx = FnCtx(inst)
+        ctx = FnCtx(inst, action.file)
         for pname, t in zip(action.params, types):
             ctx.scopes[0][pname] = t
         saved, self.fn = self.fn, ctx

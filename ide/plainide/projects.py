@@ -169,7 +169,7 @@ def build_python(project):
 
     with open(project.main_path, encoding="utf-8") as f:
         source = f.read()
-    program = parse(tokenize(source))
+    program = parse(tokenize(source), os.path.dirname(project.main_path))
     check_program(program)
     text = generate_python(program)
     os.makedirs(project.build_dir, exist_ok=True)

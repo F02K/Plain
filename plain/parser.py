@@ -2,12 +2,13 @@
 
 import copy
 import difflib
+import os
 
 from . import modules as M
 from . import nodes as N
 from . import typesys as T
 from .errors import PlainError
-from .lexer import KEYWORDS, describe
+from .lexer import KEYWORDS, describe, tokenize
 
 BLOCK_END = ("end", "else", "catch")
 COMPARE_OPS = ("=", "<", ">", "<=", ">=")
@@ -18,11 +19,17 @@ def word(tok, name):
 
 
 class Parser:
-    def __init__(self, tokens):
+    def __init__(self, tokens, base_dir=None, shared=None, chain=()):
         self.toks = tokens
         self.i = 0
         self.no_at = 0  # > 0 while 'at' must not be read as a list index (draw text ... at x, y)
-        self.modules = []   # the modules this program imported
+        self.modules = []   # the modules this file imported (their sentences can be used here)
+        self.all_modules = []   # those, and the modules that the imported files need
+        self.base_dir = base_dir            # where 'import name' looks for name.plain
+        self.shared = shared if shared is not None else {"done": set()}     # files already brought in
+        self.chain = chain                  # the files that are being read right now (to find circles)
+        self.local = []                     # (name, path) of the own files this file imported
+        self.imported = []                  # definitions that came from imported own files
 
     # ---- token helpers -----------------------------------------------------
 
@@ -96,21 +103,74 @@ class Parser:
         while self.cur.kind != "EOF":
             body.append(self.parse_statement(top_level=True))
             self.skip_newlines()
-        types = [node for module in self.modules for node in module.struct_nodes()]
-        return N.Program(types + body, [m.name for m in self.modules])
+        types = [node for module in self.all_modules for node in module.struct_nodes()]
+        return N.Program(types + self.imported + body, [m.name for m in self.all_modules])
 
     def parse_import(self):
         start = self.advance()
         name = self.expect_name("a module name")
         module = M.load(name.value)
         if module is None:
-            known = ", ".join(M.available()) or "none"
-            self.error(name, f"I don't know a module called '{name.value}'.", f"The modules are: {known}")
-        if module in self.modules:
-            self.error(name, f"The module '{name.value}' is already imported.")
-        self.modules.append(module)
+            self.import_file(name)
+        else:
+            if module in self.modules:
+                self.error(name, f"The module '{name.value}' is already imported.")
+            self.modules.append(module)
+            if module not in self.all_modules:
+                self.all_modules.append(module)
         self.end_statement()
         return start
+
+    def import_file(self, name):
+        """import lib: bring in the actions and types of lib.plain, which lies next to this program."""
+        known = ", ".join(M.available()) or "none"
+        if not self.base_dir:
+            self.error(name, f"I don't know a module called '{name.value}'.",
+                       f"The modules are: {known}. To import your own file, save this program first: "
+                       f"the file '{name.value}.plain' is looked for next to it.")
+        path = os.path.abspath(os.path.join(self.base_dir, name.value + ".plain"))
+        key = os.path.normcase(path)
+        if not os.path.isfile(path):
+            mine = sorted(f[:-6] for f in os.listdir(self.base_dir) if f.endswith(".plain"))
+            more = f" Your own files next to this program: {', '.join(mine[:8])}{', ...' if len(mine) > 8 else ''}." \
+                if mine else ""
+            self.error(name, f"I don't know a module called '{name.value}'.",
+                       f"The modules are: {known}. There is no file '{name.value}.plain' next to this program.{more}")
+        if key in self.chain:
+            self.error(name, f"'{name.value}' imports this file again, so the imports go in a circle.",
+                       "Move what both files need into a third file that imports nothing.")
+        if any(k == key for _n, k in self.local):
+            self.error(name, f"The file '{name.value}' is already imported.")
+        self.local.append((name.value, key))
+        if key in self.shared["done"]:
+            return              # another file has brought it in already
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except OSError as exc:
+            self.error(name, f"I cannot read '{name.value}.plain': {exc.strerror}.")
+        try:
+            sub = Parser(tokenize(text), os.path.dirname(path), self.shared, self.chain + (key,))
+            program = sub.parse_program()
+        except PlainError as err:
+            if err.file is None:
+                err.file = path
+            raise
+        self.shared["done"].add(key)
+        module_types = {n.name for m in sub.all_modules for n in m.struct_nodes()}
+        for node in program.body:
+            if isinstance(node, N.DefineStruct) and node.line == 0 and node.name in module_types:
+                continue        # a type of a module: it is added once for the whole program
+            if not isinstance(node, (N.DefineStruct, N.ActionDef)):
+                raise PlainError("A file that is imported can only contain 'import', 'define' and 'action'.",
+                                 node.line, node.col,
+                                 "Lines that do something belong in the main program.", file=path)
+            if node.file is None:
+                node.file = path
+            self.imported.append(node)
+        for module in sub.all_modules:
+            if module not in self.all_modules:
+                self.all_modules.append(module)
 
     def parse_block(self, stops, opener, what):
         body = []
@@ -626,5 +686,6 @@ class Parser:
         return N.Call(name_tok.value, args, named, line=name_tok.line, col=name_tok.col)
 
 
-def parse(tokens):
-    return Parser(tokens).parse_program()
+def parse(tokens, base_dir=None):
+    """base_dir: the folder of the program; 'import name' looks there for name.plain."""
+    return Parser(tokens, base_dir).parse_program()

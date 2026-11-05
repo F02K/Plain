@@ -37,7 +37,8 @@ class PyGen:
         self.line(0, "")
         self.line(0, "")
         if self.watch:
-            acts = {a.name: (a.line, tuple(a.params)) for a in self.program.body if isinstance(a, N.ActionDef)}
+            acts = {a.name: (a.line, tuple(a.params)) for a in self.program.body
+                    if isinstance(a, N.ActionDef) and not a.file}
             self.line(0, "_ACT = " + repr(acts))
             self.line(0, "")
             self.line(0, "")
@@ -69,9 +70,11 @@ class PyGen:
         self.line(0, "")
         self.line(0, f"def a_{a.name}(" + ", ".join(var(p) for p in a.params) + "):")
         self.scope = a.name
+        watching, self.watch = self.watch, self.watch and not a.file      # lines of other files cannot be shown
         for p in a.params:
             self.watched(1, p, a.line, note=False)
         self.block(a.body, 1)
+        self.watch = watching
         self.scope = ""
 
     # ---- statements ----------------------------------------------------------

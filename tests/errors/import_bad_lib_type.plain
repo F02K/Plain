@@ -1,0 +1,2 @@
+import bad_lib_type
+say oops(1)

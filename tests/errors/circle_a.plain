@@ -1,0 +1,4 @@
+import circle_b
+action from_a do
+    say "a"
+end

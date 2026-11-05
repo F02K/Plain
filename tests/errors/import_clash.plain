@@ -1,0 +1,4 @@
+import bad_lib_type
+action oops do
+    say 1
+end

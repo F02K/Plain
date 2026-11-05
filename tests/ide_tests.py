@@ -382,6 +382,33 @@ class IdeTest(unittest.TestCase):
         self.app.running.run()
         self.assertTrue(self.wait_for(lambda: bool(doc.inline)))
 
+    def test_run_a_program_that_imports_another_file(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n * 2\nend\n')
+        write(self.path("use.plain"), 'import tools\nsay twice(21)\n')
+        self.open_project()
+        doc = self.app.documents.open_path(self.path("use.plain"))
+        self.app.running.run()
+        self.assertTrue(self.wait_for(lambda: "42" in self.app.output.get()))
+
+    def test_a_mistake_in_an_imported_file_opens_that_file(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n + "a" - 1\nend\n')
+        write(self.path("use.plain"), 'import tools\nsay twice(21)\n')
+        self.open_project()
+        self.app.documents.open_path(self.path("use.plain"))
+        self.app.running.run()
+        self.assertIn("Error in tools.plain, line 2", self.app.output.get())
+        shown = self.app.documents.current()
+        self.assertEqual(shown.path, self.path("tools.plain"))
+        self.assertTrue(shown.text.tag_ranges("error_line"))
+
+    def test_an_unsaved_program_imports_from_the_project_folder(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n * 2\nend\n')
+        self.open_project()
+        doc = self.app.documents.new()
+        doc.set_text('import tools\nsay twice(5)\n')
+        self.app.running.run()
+        self.assertTrue(self.wait_for(lambda: "10" in self.app.output.get()))
+
     def test_build_makes_the_python_file(self):
         self.open_project()
         imports = self.app.building.build()

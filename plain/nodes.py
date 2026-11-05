@@ -8,6 +8,7 @@ from typing import Any, List, Optional, Tuple
 class Node:
     line: int = 0
     col: int = 0
+    file: Optional[str] = None      # the file of a definition that was imported (None: the program itself)
 
 
 # ---- expressions -----------------------------------------------------------
