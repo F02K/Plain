@@ -1,0 +1,34 @@
+note: Converting temperatures, first as a table and then for a number you type in.
+action to_fahrenheit takes(celsius) do
+    return celsius * 9 / 5 + 32
+end
+
+action to_celsius takes(fahrenheit) do
+    return (fahrenheit - 32) * 5 / 9
+end
+
+action pad takes(value, width) do
+    let shown be text of value
+    while length of shown < width do
+        set shown to " " + shown
+    end
+    return shown
+end
+
+say pad("Celsius", 9) + pad("Fahrenheit", 12)
+for celsius from -10 to 40 step 10 do
+    say pad(celsius, 9) + pad(to_fahrenheit(celsius), 12)
+end
+say ""
+
+let value be input number "Temperature in Celsius?"
+say value + " C is " + to_fahrenheit(value) + " F"
+say "and back again: " + to_celsius(to_fahrenheit(value)) + " C"
+
+if value <= 0 then
+    say "Water freezes at this temperature."
+else if value >= 100 then
+    say "Water boils at this temperature."
+else
+    say "Water stays liquid."
+end

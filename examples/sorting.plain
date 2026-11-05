@@ -1,0 +1,31 @@
+note: Bubble sort: compare neighbours and swap them until everything is in order.
+action as_text takes(numbers) do
+    let line be ""
+    for each n in numbers do
+        set line to line + n + " "
+    end
+    return trim of line
+end
+
+let numbers be list of number
+for each n in split("5,2,9,1,7,3", ",") do
+    add number of n to numbers
+end
+
+say "Before: " + as_text(numbers)
+
+let count be size of numbers
+let swaps be 0
+for pass from 1 to count - 1 do
+    for i from 0 to count - pass - 1 do
+        if numbers at i > numbers at (i + 1) then
+            let held be numbers at i
+            set numbers at i to numbers at (i + 1)
+            set numbers at (i + 1) to held
+            set swaps to swaps + 1
+        end
+    end
+    say "After pass " + pass + ": " + as_text(numbers)
+end
+
+say "Sorted with " + swaps + " swaps."

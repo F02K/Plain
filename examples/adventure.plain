@@ -1,0 +1,45 @@
+note: A tiny text adventure: find the key in the garden and open the door of the house.
+let place be "garden"
+let has_key be false
+let finished be false
+
+say "You stand in a garden. There is a house to the north."
+say "Commands: look, go north, go south, take key, open door, quit"
+
+while not finished do
+    let command be lower of trim of input ">"
+    if command = "quit" or command = "" then
+        say "You give up. Goodbye!"
+        stop
+    else if command = "look" then
+        if place = "garden" then
+            say "A garden with a bench. Something shiny lies under the bench."
+        else
+            say "A porch. A heavy door leads into the house."
+        end
+    else if command = "go north" then
+        set place to "porch"
+        say "You walk to the porch."
+    else if command = "go south" then
+        set place to "garden"
+        say "You walk back to the garden."
+    else if command = "take key" then
+        if place = "garden" and not has_key then
+            set has_key to true
+            say "You take the key from under the bench."
+        else
+            say "There is no key here."
+        end
+    else if command = "open door" then
+        if place = "garden" then
+            say "There is no door here."
+        else if has_key then
+            say "The key turns. The door opens and you step inside. You win!"
+            set finished to true
+        else
+            say "The door is locked."
+        end
+    else
+        say "I do not understand '" + command + "'."
+    end
+end

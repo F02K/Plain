@@ -1,0 +1,12 @@
+You stand in a garden. There is a house to the north.
+Commands: look, go north, go south, take key, open door, quit
+> A garden with a bench. Something shiny lies under the bench.
+> You walk to the porch.
+> The door is locked.
+> You walk back to the garden.
+> A garden with a bench. Something shiny lies under the bench.
+> You take the key from under the bench.
+> There is no key here.
+> I do not understand 'dance'.
+> You walk to the porch.
+> The key turns. The door opens and you step inside. You win!

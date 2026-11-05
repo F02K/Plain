@@ -1,0 +1,53 @@
+note: Hangman. Guess the secret word one letter at a time before the lives run out.
+let words be split("python,window,planet,garden,rocket,button", ",")
+let secret be words at (random(1, size of words) - 1)
+let guessed be ""
+let lives be 6 fixed
+let mistakes be 0
+
+action masked takes(word, guessed) do
+    let shown be ""
+    for each letter in word do
+        if contains(guessed, letter) then
+            set shown to shown + letter + " "
+        else
+            set shown to shown + "_ "
+        end
+    end
+    return trim of shown
+end
+
+action complete takes(word, guessed) do
+    for each letter in word do
+        if not contains(guessed, letter) then
+            return false
+        end
+    end
+    return true
+end
+
+say "I am thinking of a word with " + length of secret + " letters."
+while mistakes < lives and not complete(secret, guessed) do
+    say masked(secret, guessed) + "     lives left: " + (lives - mistakes)
+    let letter be lower of trim of input "Guess a letter:"
+    if letter = "" then
+        stop
+    end
+    if length of letter > 1 then
+        say "One letter at a time, please."
+    else if contains(guessed, letter) then
+        say "You tried " + letter + " already."
+    else
+        set guessed to guessed + letter
+        if not contains(secret, letter) then
+            set mistakes to mistakes + 1
+            say "No " + letter + " in the word."
+        end
+    end
+end
+
+if complete(secret, guessed) then
+    say "Yes! The word is " + secret + "."
+else
+    say "Out of lives. The word was " + secret + "."
+end

@@ -14,6 +14,8 @@ No other dependencies - the compiler uses only the Python standard library.
 
 - `tests/cases/NAME.plain` + `NAME.out` (+ optional `NAME.in` as keyboard input): the program is translated to Python, run, and its output compared.
 - `tests/windows/NAME.plain` + `NAME.out`: like the above for the window module, with the window hidden (`PLAIN_HEADLESS=1`).
+- `tests/examples/NAME.out` (and `NAME.in`): the saved output of `examples/NAME.plain`. Every example has to compile; the ones with
+  a saved output are also run and compared (examples with random numbers or windows are only compiled).
 - `tests/errors/NAME.plain` + `NAME.err`: compilation must fail; every line of `NAME.err` must appear in the error message.
 
 Add a test with every new feature or fix. CI runs the same suite.

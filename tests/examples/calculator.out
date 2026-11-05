@@ -1,0 +1,10 @@
+Operations: + - * / mod   (type nothing to stop)
+First number? Operation? Second number? 6 * 7 = 42
+
+First number? Operation? Second number? Problem: Cannot divide by zero.
+
+First number? Operation? Second number? 2 mod 5 = 2
+
+First number? Operation? Second number? Problem: I do not know the operation '^'.
+
+First number? Goodbye!

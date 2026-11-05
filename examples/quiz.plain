@@ -1,0 +1,35 @@
+note: A quiz. The questions live in a list of things; the program asks them one after another.
+define Question as
+    prompt as text
+    answer as text
+end
+
+let questions be list of Question
+add Question(prompt: "What is the capital of France?", answer: "paris") to questions
+add Question(prompt: "How many legs does a spider have?", answer: "8") to questions
+add Question(prompt: "Which planet is closest to the sun?", answer: "mercury") to questions
+add Question(prompt: "What is 7 times 8?", answer: "56") to questions
+
+let score be 0
+for i from 0 to size of questions - 1 do
+    let current be questions at i
+    say "Question " + (i + 1) + " of " + size of questions
+    let reply be input prompt of current
+    set reply to lower of trim of reply
+    if reply = answer of current then
+        say "Correct!"
+        set score to score + 1
+    else
+        say "No, the answer is " + answer of current + "."
+    end
+    say ""
+end
+
+say "You got " + score + " out of " + size of questions + "."
+if score = size of questions then
+    say "Perfect!"
+else if score >= size of questions / 2 then
+    say "Well done."
+else
+    say "Keep practising."
+end

@@ -1,0 +1,11 @@
+  Celsius  Fahrenheit
+      -10          14
+        0          32
+       10          50
+       20          68
+       30          86
+       40         104
+
+Temperature in Celsius? 37 C is 98.6 F
+and back again: 37 C
+Water stays liquid.
