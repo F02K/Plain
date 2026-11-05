@@ -1,11 +1,11 @@
-note: fixed values of an imported file are known in the program and in all its actions
+note: the fixed values of an imported file are reached as  name of file  (in the program and in its actions)
 import lib_constants
 
 action report takes(seconds) do
-    return planet + ": " + fall_speed(seconds)
+    return planet of lib_constants + ": " + fall_speed(seconds)
 end
 
-say gravity
+say gravity of lib_constants
 say report(2)
-let double_gravity be gravity * 2 fixed
+let double_gravity be gravity of lib_constants * 2 fixed
 say double_gravity

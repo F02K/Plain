@@ -154,6 +154,7 @@ class Parser:
                 err.file = path
             raise
         self.shared["done"].add(key)
+        self.shared.setdefault("imports", {})[key] = list(sub.local)
         for node in program.body:
             allowed = (N.DefineStruct, N.ActionDef, N.PythonExport, N.PythonBlock)
             if not isinstance(node, allowed) and not (isinstance(node, N.Let) and node.fixed):
@@ -741,4 +742,8 @@ class Parser:
 
 def parse(tokens, base_dir=None):
     """base_dir: the folder of the program; 'import name' looks there for name.plain."""
-    return Parser(tokens, base_dir).parse_program()
+    parser = Parser(tokens, base_dir)
+    program = parser.parse_program()
+    program.file_imports = dict(parser.shared.get("imports", {}))
+    program.file_imports[None] = list(parser.local)         # the program itself
+    return program

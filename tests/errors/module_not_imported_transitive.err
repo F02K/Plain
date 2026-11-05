@@ -1,0 +1,2 @@
+'Color' belongs to the module 'color', which is not imported
+import color

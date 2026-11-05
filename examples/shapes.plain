@@ -1,5 +1,6 @@
 note: Draw a picture. Close the window to stop.
 import window
+import color
 
 let sky be Color(red: 120, green: 190, blue: 255)
 let win be Window(title: "My house", width: 480, height: 320, background: sky)
@@ -7,15 +8,15 @@ let win be Window(title: "My house", width: 480, height: 320, background: sky)
 while open of win do
     run clear of win
 
-    run draw_circle(410, 60, 30, yellow) of win
-    run draw_rectangle(0, 240, 480, 80, green) of win
+    run draw_circle(410, 60, 30, yellow of color) of win
+    run draw_rectangle(0, 240, 480, 80, green of color) of win
 
     note: the house
-    run draw_rectangle(140, 150, 160, 100, brown) of win
-    run draw_line(130, 150, 220, 90, red) of win
-    run draw_line(220, 90, 310, 150, red) of win
-    run draw_rectangle(190, 190, 60, 60, white) of win
+    run draw_rectangle(140, 150, 160, 100, brown of color) of win
+    run draw_line(130, 150, 220, 90, red of color) of win
+    run draw_line(220, 90, 310, 150, red of color) of win
+    run draw_rectangle(190, 190, 60, 60, white of color) of win
 
-    run draw_text("Home sweet home", 160, 270, black) of win
+    run draw_text("Home sweet home", 160, 270, black of color) of win
     run show of win
 end

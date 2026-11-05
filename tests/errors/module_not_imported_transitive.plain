@@ -1,0 +1,3 @@
+import window
+let c be Color(red: 1, green: 2, blue: 3)
+say 1

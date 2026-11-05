@@ -74,8 +74,8 @@ HELP = {
     "is_down": "is_down(\"left\") of win  is true while that key is held down.",
     "mouse_x": "mouse_x of win  is where the mouse is inside the window (mouse_y too). mouse_down of win  is true while the left button is held.",
     "background": "background of win  is the color that clear fills the window with.  set background of win to black",
-    "color": "color of win  is the color that is drawn next.  set color of win to orange  (colors: red green blue yellow orange purple pink brown gray white black)",
-    "Color": "Color(red: 0, green: 0, blue: 0)  is a color made of red, green and blue (0 to 255).",
+    "color": "color of win  is the color that is drawn next.  set color of win to orange of color  (import color; colors: red green blue yellow orange purple pink brown gray white black)",
+    "Color": "Color(red: 0, green: 0, blue: 0)  is a color made of red, green and blue (0 to 255). It comes with import color.",
     "number": "number  is the type for numbers.", "text": "text  is the type for words and sentences.",
     "boolean": "boolean  is the type for true and false.",
 }

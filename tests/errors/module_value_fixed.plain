@@ -1,0 +1,2 @@
+import color
+set red of white of color to 5

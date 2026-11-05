@@ -1,14 +1,15 @@
 note: Windows are hidden in the tests (PLAIN_HEADLESS), so this only checks the logic.
 import window
+import color
 
 let win be Window(title: "Test", width: 320, height: 200)
 say title of win
 say width of win
 say height of win
 say open of win
-set color of win to red
+set color of win to red of color
 run clear of win
-run draw_rectangle(10, 10, 100, 50, blue) of win
+run draw_rectangle(10, 10, 100, 50, blue of color) of win
 run draw_circle(200, 100, 30) of win
 run draw_circle(x: 20, radius: 5, y: 40) of win
 run draw_line(0, 0, 320, 200) of win

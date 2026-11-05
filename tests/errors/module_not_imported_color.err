@@ -1,2 +1,2 @@
-belongs to the module 'window', which is not imported
-import window
+'color' is a module, which is not imported
+import color

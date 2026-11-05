@@ -321,15 +321,18 @@ first lines:
 ```
 import window
 
+import color
+
 let win be Window(title: "My game", width: 640, height: 480)
 while open of win do
     run clear of win
-    run draw_circle(320, 240, 30, orange) of win
+    run draw_circle(320, 240, 30, orange of color) of win
     run show of win
 end
 ```
 
-The only built-in module so far is `window` (windows, drawing, keys and mouse). Its things, actions, the colors and how
+The built-in modules are `window` (windows, drawing, keys and mouse) and `color` (the type `Color` and the color names;
+`window` brings it in). Its things, actions, the colors and how
 to write your own module are in [Modules](modules.md). A module is a Plain file like your own, so everything below
 about your own files holds for modules too.
 
@@ -355,14 +358,17 @@ import shapes
 say distance(Point(x: 0, y: 0), Point(x: 6, y: 8))      note: 10
 ```
 
-- The imported names are used as if they were written in your program; all names are shared, so a name can be
-  used only once (Plain tells you where the first one is).
+- The types and actions of an imported file are used as if they were written in your program; all names are
+  shared, so a name can be used only once (Plain tells you where the first one is).
+- A file sees only what it imports itself. If `lib_a` imports `lib_b`, your program has to write `import lib_b`
+  too before it can use the names of `lib_b`.
+- The fixed values of an imported file are reached through its name: `gravity of lib_constants` (see below)
 - A file can import other files, but not in a circle. Every file is read once.
 - If the mistake is inside the imported file, the message shows that file and line (the IDE opens it).
-- An imported file may also hold `let ... fixed` values (a library of constants).
+- An imported file may also hold `let ... fixed` values (a library of constants). They are written `name of file`
+  in the program and in its actions, for example `gravity of lib_constants`. Inside the file itself the plain name works.
 - The imports go in the first lines. A built-in module wins over a file with the same name.
-- The names of a module are used in the same way: a fixed value such as `orange` cannot be used as the name of a
-  variable of your own.
+- Modules are used in the same way: `import color`, then `orange of color`.
 
 ## Errors
 

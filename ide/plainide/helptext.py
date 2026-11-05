@@ -25,14 +25,14 @@ Text helpers     length of t   upper of t   lower of t   trim of t
                  number of "42"             text of 42
 Number helpers   round of x    abs of x     sqrt of x
                  min(a, b)     max(a, b)    random(1, 6)
-Windows          import window     let win be Window(title: "Game", width: 640, height: 480)
+Windows          import window     import color     let win be Window(title: "Game", width: 640, height: 480)
                  while open of win do ... run show of win ... end     run close of win
-                 run clear of win           set color of win to orange    set background of win to black
+                 run clear of win           set color of win to orange of color    set background of win to black of color
                  run draw_rectangle(x, y, width, height) of win          run draw_circle(x, y, radius) of win
                  run draw_line(x1, y1, x2, y2) of win                    run draw_text("hi", x, y) of win
                  is_down("left") of win     mouse_x of win   mouse_y of win   mouse_down of win
-                 a color as last value:     run draw_circle(10, 10, 5, red) of win
-Colors           red green blue yellow orange purple pink brown gray white black
+                 a color as last value:     run draw_circle(10, 10, 5, red of color) of win
+Colors           import color:  red of color  green of color  blue of color  yellow  orange  purple  pink  brown  gray  white  black
                  let sky be Color(red: 20, green: 24, blue: 40)    set background of win to sky
 Actions          run heal(20) of hero   is the same as   run heal(hero, 20)       name: value  also works: heal(amount: 20)
 Waiting, files   wait 2 seconds                  read_file("a.txt")    file_exists("a.txt")

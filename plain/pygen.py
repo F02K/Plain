@@ -274,6 +274,8 @@ class PyGen:
         return f"_input({self.expr(e.prompt)})"
 
     def x_Field(self, e):
+        if e.module_value:                      # white of color: a fixed value of a module
+            return var(e.module_value)
         obj = self.expr(e.obj)
         if e.name == "size":
             return f'_size_or_field({obj}, "f_size")'

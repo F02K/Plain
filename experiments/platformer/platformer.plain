@@ -2,6 +2,7 @@ note: Plain Platformer - a small side scroller to test how Plain feels for a big
 note: Arrow keys move, up or space jumps, S saves, L loads, R starts again.
 note: Collect the coins, jump on the red enemies and reach the flag.
 import window
+import color
 
 define Player as
     x as number
@@ -239,15 +240,15 @@ action draw_world takes(win, level, cam) do
                 let sx be col * tile - cam
                 let sy be row * tile
                 if t = "#" then
-                    run draw_rectangle(sx, sy, 32, 32, brown) of win
+                    run draw_rectangle(sx, sy, 32, 32, brown of color) of win
                     if tile_at(level, col, row - 1) = "." then
-                        run draw_rectangle(sx, sy, 32, 8, green) of win
+                        run draw_rectangle(sx, sy, 32, 8, green of color) of win
                     end
                 else if t = "o" then
-                    run draw_circle(sx + 16, sy + 16, 7, yellow) of win
+                    run draw_circle(sx + 16, sy + 16, 7, yellow of color) of win
                 else if t = "F" then
-                    run draw_rectangle(sx + 14, sy, 4, 32, white) of win
-                    run draw_rectangle(sx + 18, sy, 14, 10, red) of win
+                    run draw_rectangle(sx + 14, sy, 4, 32, white of color) of win
+                    run draw_rectangle(sx + 18, sy, 14, 10, red of color) of win
                 end
             end
         end
@@ -257,27 +258,27 @@ end
 action draw_enemies takes(win, enemies, cam) do
     for each e in enemies do
         if alive of e then
-            run draw_rectangle(x of e - cam, y of e, 24, 24, red) of win
-            run draw_rectangle(x of e - cam + 5, y of e + 6, 4, 4, white) of win
-            run draw_rectangle(x of e - cam + 15, y of e + 6, 4, 4, white) of win
+            run draw_rectangle(x of e - cam, y of e, 24, 24, red of color) of win
+            run draw_rectangle(x of e - cam + 5, y of e + 6, 4, 4, white of color) of win
+            run draw_rectangle(x of e - cam + 15, y of e + 6, 4, 4, white of color) of win
         end
     end
 end
 
 action draw_player takes(win, p, cam) do
-    run draw_rectangle(x of p - cam, y of p, player_w, player_h, blue) of win
-    run draw_rectangle(x of p - cam + 14, y of p + 6, 6, 6, white) of win
+    run draw_rectangle(x of p - cam, y of p, player_w, player_h, blue of color) of win
+    run draw_rectangle(x of p - cam + 14, y of p + 6, 6, 6, white of color) of win
 end
 
 action draw_hud takes(win, p, message, state) do
-    run draw_text("Coins: " + coins of p + "   Lives: " + lives of p, 10, 8, white) of win
+    run draw_text("Coins: " + coins of p + "   Lives: " + lives of p, 10, 8, white of color) of win
     if not (message = "") then
-        run draw_text(message, 10, 28, white) of win
+        run draw_text(message, 10, 28, white of color) of win
     end
     if state = "won" then
-        run draw_text("You reached the flag with " + coins of p + " coins! Press R to play again.", 40, 150, white) of win
+        run draw_text("You reached the flag with " + coins of p + " coins! Press R to play again.", 40, 150, white of color) of win
     else if state = "over" then
-        run draw_text("Game over. Press R to play again.", 120, 150, white) of win
+        run draw_text("Game over. Press R to play again.", 120, 150, white of color) of win
     end
 end
 

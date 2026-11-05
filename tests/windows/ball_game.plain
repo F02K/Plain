@@ -1,6 +1,7 @@
 note: A small ball game. Move the paddle with the left and right arrow keys.
 note: Close the window to stop.
 import window
+import color
 
 let win be Window(title: "Plain Ball", width: 480, height: 320, background: Color(red: 20, green: 24, blue: 40))
 
@@ -50,8 +51,8 @@ while open of win and frames < 200 do
     note: draw everything
     run clear of win
     run draw_rectangle(paddle, 300, 80, 10, Color(red: 240, green: 240, blue: 240)) of win
-    run draw_circle(ball_x, ball_y, 8, orange) of win
-    run draw_text("Score: " + score + "   Lives: " + lives, 10, 8, white) of win
+    run draw_circle(ball_x, ball_y, 8, orange of color) of win
+    run draw_text("Score: " + score + "   Lives: " + lives, 10, 8, white of color) of win
     run show of win
     set frames to frames + 1
 end

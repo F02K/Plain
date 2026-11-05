@@ -55,6 +55,7 @@ class Unary(Node):
 class Field(Node):
     name: str
     obj: Node
+    module_value: Optional[str] = None      # set by the checker for 'white of color': a fixed value of a module
 
 
 @dataclass
@@ -253,3 +254,4 @@ class PythonBlock(Node):
 class Program(Node):
     body: List[Node]
     imports: List[str] = field(default_factory=list)     # the modules the program uses (their names)
+    file_imports: dict = field(default_factory=dict)     # file -> [(name, file)]: what each file imports itself

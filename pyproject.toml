@@ -17,7 +17,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["plain", "modules", "modules.window", "plainide"]
+packages = ["plain", "modules", "modules.color", "modules.window", "plainide"]
 
 [tool.setuptools.package-dir]
 "" = "."
@@ -27,4 +27,5 @@ plainide = "ide/plainide"
 version = { attr = "plain.__version__" }
 
 [tool.setuptools.package-data]
+"modules.color" = ["color.plain"]
 "modules.window" = ["window.plain", "window_impl.py"]

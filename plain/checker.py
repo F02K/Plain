@@ -45,6 +45,7 @@ class PyInfo:
         self.receiver = receiver        # the name after 'of', or None
         self.recv_type = recv_type
         self.params = params
+        self.file = None                # the module file that lists it
         self.gives = node.gives if node.gives is not None else T.NOTHING
 
 
@@ -60,6 +61,9 @@ class Checker:
         self.fn = None
         self.cur_file = None        # the file of the definition that is being looked at
         self.globals = {}           # name -> type of the fixed values that every action can read
+        self.global_files = {}      # name -> the file that made the fixed value (None: the program itself)
+        self.globals_by_file = {}   # file -> {name: type}: reached from other files as 'name of file'
+        self.imports = getattr(program, "file_imports", {})     # file -> [(name, file)] it imports itself
         self.main_only = set()      # top-level fixed names that actions cannot read (their value is not plain)
         program.constants = []      # their 'let ... fixed' lines, in order (the Python writer needs them)
 
@@ -76,12 +80,14 @@ class Checker:
         elif T.is_struct(t) and t[1] not in self.structs:
             close = difflib.get_close_matches(t[1], list(self.structs), n=1)
             self.error(node, f"I don't know a type called '{t[1]}'.", f"Did you mean '{close[0]}'?" if close else None)
+        elif T.is_struct(t) and not self.visible(self.structs[t[1]].file, node):
+            self.not_visible(t[1], self.structs[t[1]].file, node)
         return t
 
     # ---- scopes --------------------------------------------------------------
 
     def declare(self, name, t, node):
-        if name in self.globals:
+        if name in self.globals and self.fkey(self.global_files[name]) == self.fkey(self.here(node)):
             self.error(node, f"'{name}' is already a fixed value of the program.",
                        "Pick another name for the variable.")
         for scope in self.fn.scopes:
@@ -94,11 +100,16 @@ class Checker:
         for scope in reversed(self.fn.scopes):
             if name in scope:
                 return scope[name]
-        if name in self.globals:
+        if name in self.globals and self.fkey(self.global_files[name]) == self.fkey(self.here(node)):
             return self.globals[name]
         known = [n for sc in self.fn.scopes for n in sc]
         close = difflib.get_close_matches(name, known, n=1)
-        self.not_imported(name, node)
+        explained = self.explain_value(name, node)
+        if explained:
+            self.error(node, f"I don't know a variable called '{name}'.", explained)
+        if name in M.available() and self.module_of(name, node) is None:
+            self.error(node, f"'{name}' is a module, which is not imported.",
+                       f"Add this line at the very top of your program:  import {name}")
         if not self.fn.is_main and name in self.main_only:
             hint = (f"'{name}' is fixed, but actions only know fixed values made of plain numbers, text and "
                     "true/false (or calculated from those). Pass it in as a parameter.")
@@ -109,6 +120,83 @@ class Checker:
         else:
             hint = f"Create it first with: let {name} be ..."
         self.error(node, f"I don't know a variable called '{name}'.", hint)
+
+    # ---- who can see what ---------------------------------------------------------
+    # A file sees the types and actions of the files it imports itself (not those they import), and reaches
+    # their fixed values as 'name of file', for example  white of color.
+
+    def fkey(self, file):
+        return None if file is None else os.path.normcase(file)
+
+    def here(self, node=None):
+        """The file of the code that is being looked at (None: the program itself)."""
+        if node is not None and hasattr(node, "scope_file"):
+            return node.scope_file
+        return (self.fn.file if self.fn else None) or self.cur_file
+
+    def tag_scope(self, node, file):
+        """Mark an expression (a default value) with the file it was written in, wherever it is used later."""
+        if isinstance(node, N.Node):
+            node.scope_file = file
+            for f in dataclasses.fields(node):
+                self.tag_scope(getattr(node, f.name), file)
+        elif isinstance(node, (list, tuple)):
+            for item in node:
+                self.tag_scope(item, file)
+
+    def visible(self, def_file, node):
+        here = self.fkey(self.here(node))
+        if self.fkey(def_file) == here:
+            return True
+        return any(key == self.fkey(def_file) for _name, key in self.imports.get(here, []))
+
+    def import_name(self, key, node):
+        """The name under which this file imported another one (white of THIS)."""
+        for name, k in self.imports.get(self.fkey(self.here(node)), []):
+            if k == key:
+                return name
+        return None
+
+    def module_of(self, name, node):
+        """The file that 'import name' brought into the file of this node, or None."""
+        for iname, key in self.imports.get(self.fkey(self.here(node)), []):
+            if iname == name:
+                return key
+        return None
+
+    def is_variable(self, name, node):
+        if any(name in scope for scope in self.fn.scopes):
+            return True
+        return name in self.globals and self.fkey(self.global_files[name]) == self.fkey(self.here(node))
+
+    def stem(self, file):
+        return os.path.splitext(os.path.basename(file))[0]
+
+    def kind_of_file(self, file):
+        folder = os.path.dirname(os.path.dirname(os.path.abspath(file)))
+        return "module" if os.path.normcase(folder) == os.path.normcase(os.path.abspath(M.modules_dir())) else "file"
+
+    def not_visible(self, name, def_file, node):
+        here = self.here(node)
+        where = "your program" if here is None else f"the file {os.path.basename(here)}"
+        self.error(node, f"'{name}' belongs to the {self.kind_of_file(def_file)} '{self.stem(def_file)}', "
+                         "which is not imported.",
+                   f"Add this line at the very top of {where}:  import {self.stem(def_file)}")
+
+    def explain_value(self, name, node):
+        """A name that is not a variable here, but is a fixed value of a file or module: say how to write it."""
+        file = self.global_files.get(name)
+        if file is not None and self.fkey(file) != self.fkey(self.here(node)):
+            if self.visible(file, node):
+                return (f"'{name}' is a value of '{self.stem(file)}'. "
+                        f"Write:  {name} of {self.import_name(self.fkey(file), node)}")
+            return (f"'{name}' belongs to the {self.kind_of_file(file)} '{self.stem(file)}'. Add the line  "
+                    f"import {self.stem(file)}  at the very top, then write:  {name} of {self.stem(file)}")
+        module = M.provided_names().get(name)
+        if module and file is None and name in M.color_names():
+            return (f"'{name}' belongs to the module '{module}'. Add the line  import {module}  at the very top, "
+                    f"then write:  {name} of {module}")
+        return None
 
     def not_imported(self, name, node):
         """A name that a module offers, used without 'import': say which line is missing."""
@@ -179,6 +267,8 @@ class Checker:
                     self.error(N.Node(line=fline), f"The field '{fname}' appears twice in '{name}'.")
                 self.check_type(ftype, N.Node(line=fline))
                 fields[fname] = ftype
+            for default in sd.defaults.values():
+                self.tag_scope(default, sd.file)
             sd.layout = fields
         self.cur_file = None
         self.collect_constants()
@@ -244,7 +334,11 @@ class Checker:
                 self.error(a, f"In {stmt.pyfile} the function '{a.name}' takes {fewest if fewest == most else f'{fewest} to {most}'} "
                               f"value(s), but Plain gives it {given}: " +
                               ", ".join(([a.receiver] if a.receiver else []) + [p.name for p in a.params] + ["the line number"]) + ".")
+            for param in a.params:
+                if param.default is not None:
+                    self.tag_scope(param.default, stmt.file)
             self.pyactions[a.name] = PyInfo(a, ns, a.receiver, recv_type, a.params)
+            self.pyactions[a.name].file = stmt.file
 
     def collect_constants(self):
         """Top-level 'let ... fixed' lines with a plain value (numbers, text, true/false, other fixed values and
@@ -256,13 +350,15 @@ class Checker:
                 if stmt.name in self.globals:
                     self.error(stmt, f"There is already a fixed value called '{stmt.name}'.")
                 self.globals[stmt.name] = self.expr(stmt.value)
+                self.global_files[stmt.name] = stmt.file
+                self.globals_by_file.setdefault(self.fkey(stmt.file), {})[stmt.name] = self.globals[stmt.name]
                 self.program.constants.append(stmt)
             elif isinstance(stmt, N.Let) and stmt.fixed:
                 self.main_only.add(stmt.name)
         self.fn, self.cur_file = None, None
         for action in self.actions.values():
             for p in action.params:
-                if p in self.globals:
+                if p in self.globals and self.fkey(self.global_files[p]) == self.fkey(action.file):
                     self.cur_file = action.file
                     self.error(action, f"The parameter '{p}' has the name of a fixed value.",
                                "Pick another name for the parameter.")
@@ -275,7 +371,10 @@ class Checker:
         if isinstance(node, N.Binary):
             return self.is_constant(node.left) and self.is_constant(node.right)
         if isinstance(node, N.Var):
-            return node.name in self.globals
+            return node.name in self.globals and self.fkey(self.global_files[node.name]) == self.fkey(self.here(node))
+        if isinstance(node, N.Field) and isinstance(node.obj, N.Var):        # white of color
+            key = self.module_of(node.obj.name, node)
+            return key is not None and node.name in self.globals_by_file.get(key, {})
         if isinstance(node, N.Call) and node.name in self.structs and not node.args and node.named is not None:
             return all(self.is_constant(value) for _name, value in node.named)      # Color(red: 1, green: 2, blue: 3)
         return False
@@ -284,7 +383,7 @@ class Checker:
         for scope in self.fn.scopes:
             if name in scope:
                 return name in self.fn.fixed
-        return name in self.globals
+        return name in self.globals and self.fkey(self.global_files[name]) == self.fkey(self.here())
 
     def check_changeable(self, target):
         """Nothing that was made with 'fixed' may be changed: not set, and no adding to or sorting of a fixed list."""
@@ -294,6 +393,10 @@ class Checker:
         if isinstance(node, N.Var) and self.is_fixed(node.name):
             self.error(node, f"'{node.name}' is fixed, so it cannot be changed.",
                        f"If it has to change, take 'fixed' away from the line that creates '{node.name}'.")
+        if isinstance(node, N.Var) and node is not target and not self.is_variable(node.name, node) \
+                and self.module_of(node.name, node) is not None:
+            self.error(node, f"The values of '{node.name}' are fixed, so they cannot be changed.",
+                       "Make a value of your own, for example:  let mine be Color(red: 1, green: 2, blue: 3)")
 
     def first_definition(self, name):
         """Where a name was defined first, for the hint of an error about a name that is used twice."""
@@ -552,6 +655,15 @@ class Checker:
         return T.NUMBER if e.as_number else T.TEXT
 
     def x_Field(self, e):
+        if isinstance(e.obj, N.Var) and not self.is_variable(e.obj.name, e):
+            key = self.module_of(e.obj.name, e)
+            if key is not None:                                  # white of color
+                values = self.globals_by_file.get(key, {})
+                if e.name not in values:
+                    self.error(e, f"The module '{e.obj.name}' has no value called '{e.name}'.",
+                               "Its values are: " + (", ".join(values) or "none"))
+                e.module_value = e.name
+                return values[e.name]
         ot = self.expr(e.obj)
         if ot == T.ANY:
             return L.OF[e.name][1] if e.name in L.OF else T.NUMBER if e.name == "size" else T.ANY
@@ -616,8 +728,12 @@ class Checker:
                            "Use it inside 'say' or 'let', for example: say " + L.EXAMPLES[e.name])
             return self.builtin_call(e)
         if e.name in self.structs:
+            if not self.visible(self.structs[e.name].file, e):
+                self.not_visible(e.name, self.structs[e.name].file, e)
             return self.construct(e)
         if e.name in self.pyactions:
+            if not self.visible(self.pyactions[e.name].file, e):
+                self.not_visible(e.name, self.pyactions[e.name].file, e)
             return self.py_call(e, want_value)
         if e.name not in self.actions:
             self.not_imported(e.name, e)
@@ -626,6 +742,8 @@ class Checker:
                 f"Define it first with: action {e.name} takes(...) do ... end"
             self.error(e, f"I don't know an action or type called '{e.name}'.", hint)
         action = self.actions[e.name]
+        if not self.visible(action.file, e):
+            self.not_visible(e.name, action.file, e)
         e.bound = self.bind_arguments(e, action.params)
         types = []
         for arg in e.bound:

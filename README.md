@@ -69,11 +69,12 @@ Windows and drawing are not part of the language itself. A program asks for them
 
 ```
 import window
+import color
 
 let win be Window(title: "My game", width: 480, height: 320)
 while open of win do
     run clear of win
-    run draw_circle(240, 160, 30, orange) of win
+    run draw_circle(240, 160, 30, orange of color) of win
     run show of win
 end
 ```

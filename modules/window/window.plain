@@ -10,33 +10,15 @@ note:       run draw_circle(320, 240, 30, orange) of win
 note:       run show of win
 note:   end
 
-note: A color you make yourself:  let sky be Color(red: 20, green: 24, blue: 40)
-define Color as
-    red as number
-    green as number
-    blue as number
-end
-
-note: The color names. Red, green and blue go from 0 to 255.
-let red be Color(red: 230, green: 50, blue: 50) fixed
-let green be Color(red: 50, green: 180, blue: 70) fixed
-let blue be Color(red: 50, green: 100, blue: 230) fixed
-let yellow be Color(red: 250, green: 220, blue: 50) fixed
-let orange be Color(red: 255, green: 150, blue: 30) fixed
-let purple be Color(red: 150, green: 70, blue: 200) fixed
-let pink be Color(red: 255, green: 130, blue: 180) fixed
-let brown be Color(red: 140, green: 90, blue: 50) fixed
-let gray be Color(red: 128, green: 128, blue: 128) fixed
-let white be Color(red: 255, green: 255, blue: 255) fixed
-let black be Color(red: 0, green: 0, blue: 0) fixed
+import color
 
 note: The window. Making one opens it. The fields marked readonly are kept up to date by Python.
 define Window as
     title as text
     width as number
     height as number
-    background as Color = black
-    color as Color = white
+    background as Color = black of color
+    color as Color = white of color
     open as boolean readonly
     mouse_x as number readonly
     mouse_y as number readonly

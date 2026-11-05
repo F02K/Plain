@@ -1,4 +1,5 @@
 import window
+import color
 
 try
     let bad be Window(title: "Bad", width: 0, height: 100)

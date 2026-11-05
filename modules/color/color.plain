@@ -1,0 +1,25 @@
+note: The color module: the type Color and the color names. A program uses it with  import color
+note: (the window module brings it in as well).
+note:
+note:   let sky be Color(red: 20, green: 24, blue: 40)
+note:   let c be orange
+
+note: A color you make yourself:  let sky be Color(red: 20, green: 24, blue: 40)
+define Color as
+    red as number
+    green as number
+    blue as number
+end
+
+note: The color names. Red, green and blue go from 0 to 255.
+let red be Color(red: 230, green: 50, blue: 50) fixed
+let green be Color(red: 50, green: 180, blue: 70) fixed
+let blue be Color(red: 50, green: 100, blue: 230) fixed
+let yellow be Color(red: 250, green: 220, blue: 50) fixed
+let orange be Color(red: 255, green: 150, blue: 30) fixed
+let purple be Color(red: 150, green: 70, blue: 200) fixed
+let pink be Color(red: 255, green: 130, blue: 180) fixed
+let brown be Color(red: 140, green: 90, blue: 50) fixed
+let gray be Color(red: 128, green: 128, blue: 128) fixed
+let white be Color(red: 255, green: 255, blue: 255) fixed
+let black be Color(red: 0, green: 0, blue: 0) fixed

@@ -35,7 +35,9 @@ Hint: An action only knows its own parameters and variables. Pass other values i
 | `I do not know a command or helper called 'read' ...` | A word in the middle of a line is not known. Check the spelling; values are joined with `+`. |
 | `I expected 'to' here ...` (in a `for` line) | A counting loop is `for i from 1 to 10 do`, optionally with `step`. |
 | `A text cannot be changed letter by letter.` | `set t at 0 to "x"` works for lists only. Build a new text with `part` and `+`. |
-| `'x' belongs to the module 'm', which is not imported.` | You used a type, action or color of a module without `import m` at the top. |
+| `'x' belongs to the module 'm', which is not imported.` | You used a type or action of a module (or of one of your own files) without `import m` at the top. Only the files you import yourself are visible. |
+| `'x' is a value of 'm'. Write:  x of m` | A fixed value of an imported file or module is reached through its name: `white of color`. |
+| `'m' is a module, which is not imported.` | You wrote `x of m` but `import m` is missing. |
 | `I don't know a module called 'x'.` | `import x` found no module and no file `x.plain` next to the program. The hint lists both. |
 | `The file 'x' is already imported.` / `... the imports go in a circle.` | Import every file once; two files cannot import each other. |
 | `A file that is imported can only contain 'import', 'define', 'action' and 'let ... fixed'.` | Move lines that *do* something into the main program. |

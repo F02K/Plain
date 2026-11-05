@@ -1,0 +1,8 @@
+note: Only the color module: no window needed.
+import color
+
+let sky be Color(red: 20, green: 24, blue: 40)
+say red of sky + green of sky + blue of sky
+say green of orange of color
+let mine be white of color
+say red of mine

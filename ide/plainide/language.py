@@ -18,8 +18,8 @@ OF_HELPERS = set(OF)
 # Words that are only special in some places, so that names like 'step' stay ordinary names elsewhere.
 PHRASES = re.compile(r'\btakes(?=\s*\()|\b(?:number|text)(?=\s+of\b)|\bstep(?=\s+-?[\w.]+\s+do\b)'
                      r'|\b(?:fixed|readonly)(?=[ \t]*(?:\r?\n|\Z))')
-# The color names of the modules (orange, white, ...) are colored like helpers, but not as a field name (red of sky).
-COLOR_WORD = re.compile(r"(?<!of )\b(?:" + "|".join(MODULES.color_names()) + r")\b(?!\s*:)")
+# The color names of the modules are colored like helpers where they are used:  white of color
+COLOR_WORD = re.compile(r"\b(?:" + "|".join(MODULES.color_names()) + r")(?=\s+of\s+color\b)")
 
 # Words that expand into a whole block when you accept them in the completion list.
 # {i} is the indentation of the current line, | marks where the cursor ends up.

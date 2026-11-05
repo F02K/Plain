@@ -5,19 +5,19 @@ A program asks for a module in the first lines:
 
 ```
 import window
+import color
 
 let win be Window(title: "Plain Ball", width: 480, height: 320)
 while open of win do
     run clear of win
-    run draw_circle(240, 160, 30, orange) of win
+    run draw_circle(240, 160, 30, orange of color) of win
     run show of win
 end
 ```
 
 A module is written in Plain, like your own files (see [Modules and your own files](language.md#modules-and-your-own-files)).
-`import window` brings in its types (`Window`, `Color`), its fixed values (the color names) and its actions
-(`clear`, `draw_circle`, ...). Without the import they do not exist. If you use one anyway, Plain tells you where
-it comes from:
+`import window` brings in its type (`Window`) and its actions (`clear`, `draw_circle`, ...). Without the import
+they do not exist. If you use one anyway, Plain tells you where it comes from:
 
 ```
 'Window' belongs to the module 'window', which is not imported.
@@ -25,6 +25,15 @@ Hint: Add this line at the very top of your program:  import window
 ```
 
 `import` lines go at the top, before everything else (comments are fine).
+
+### What a file can see
+
+- A file sees the **types and actions** of the files it imports itself. What those files import in turn stays
+  private: `import window` does not give you `Color`; for that you write `import color` yourself.
+- The **fixed values** of a module are reached through its name, like a field of the module:
+  `white of color`, `gravity of lib_constants`. They never mix with the variables of your program (you may call a
+  variable `red`). Two fixed values in different files still cannot have the same name.
+- Inside the file that makes a fixed value it is written plainly (`let pi be 3.14159 fixed`, then `pi`).
 
 ## Things, fields and actions
 
@@ -34,7 +43,7 @@ A module follows the same rules as the rest of Plain:
 | --- | --- | --- |
 | make a thing | `let win be Window(title: "Game", width: 640, height: 480)` | `Player(x: 0, health: 100)` |
 | read a value | `open of win`, `mouse_x of win` | `health of hero` |
-| change a value | `set color of win to orange` | `set health of hero to 90` |
+| change a value | `set color of win to orange of color` | `set health of hero to 90` |
 | do something | `run clear of win`, `run draw_circle(40, 40, 8) of win` | `run heal(hero, 20)` |
 | ask something | `is_down("left") of win` | `area(shape)` |
 
@@ -46,7 +55,7 @@ something is an action with `run`.
 The thing an action works on is written after `of` and is the action's first value:
 
 ```
-run draw_circle(40, 40, 8, red) of win      note: the same as  run draw_circle(win, 40, 40, 8, red)
+run draw_circle(40, 40, 8, red of color) of win      note: the same as  run draw_circle(win, 40, 40, 8, red of color)
 run show of win                             note: no values besides the thing: no brackets
 if is_down("left") of win then ...          note: also inside conditions
 ```
@@ -54,7 +63,7 @@ if is_down("left") of win then ...          note: also inside conditions
 Values can be given with their names, in any order (plain values first):
 
 ```
-run draw_circle(40, 40, radius: 8, color: red) of win
+run draw_circle(40, 40, radius: 8, color: red of color) of win
 run draw_circle(radius: 8, y: 40, x: 40) of win
 ```
 
@@ -86,15 +95,19 @@ grows downwards.
 The `color` of every drawing action is optional. Without it the action uses `color of win`:
 
 ```
-set color of win to orange
+set color of win to orange of color
 run draw_circle(40, 40, 8) of win           note: orange
-run draw_circle(80, 40, 8, red) of win      note: red, only for this circle
+run draw_circle(80, 40, 8, red of color) of win      note: red, only for this circle
 ```
 
 ### Colors
 
-- The color names are fixed values of the type `Color`: `red`, `green`, `blue`, `yellow`, `orange`, `purple`,
-  `pink`, `brown`, `gray`, `white`, `black`.
+Colors are a module of their own, `color`, so that other modules can use them too. Write `import color` next to
+`import window` (the window module uses it, but its names are not passed on to you).
+
+- The color names are fixed values of the type `Color`, reached through the module: `red of color`, `green of color`,
+  `blue of color`, `yellow of color`, `orange of color`, `purple of color`, `pink of color`, `brown of color`,
+  `gray of color`, `white of color`, `black of color`.
 - Your own colors are things of the type `Color` with the fields `red`, `green` and `blue` (0 to 255):
 
   ```
@@ -102,7 +115,7 @@ run draw_circle(80, 40, 8, red) of win      note: red, only for this circle
   set background of win to sky
   set red of sky to 100
   ```
-- Because the names are fixed values, a variable of your own cannot be called `red`, `green`, `orange`, ... (Plain tells you).
+- The colors of the module are fixed: `set red of white of color to 5` is an error. Make a color of your own instead.
 
 ### Things to know
 
@@ -116,9 +129,16 @@ run draw_circle(80, 40, 8, red) of win      note: red, only for this circle
 - See [`examples/ball.plain`](../examples/ball.plain), [`paint.plain`](../examples/paint.plain) and
   [`shapes.plain`](../examples/shapes.plain).
 
+## The color module
+
+`modules/color/color.plain` is a module without any Python: it only holds the type `Color` and the color names
+(`let orange be Color(red: 255, green: 150, blue: 30) fixed`). A module can bring in another one with `import` at
+its top, like `window.plain` does with `import color`. Inside `window.plain` the colors are written as in your
+programs: `background as Color = black of color`.
+
 ## Writing a module
 
-A module is a folder in `modules/` with a Plain file and a Python file:
+A module is a folder in `modules/` with a Plain file and, if it needs Python, a Python file:
 
 ```
 modules/window/window.plain       what the module offers
@@ -133,8 +153,8 @@ define Window as
     title as text
     width as number
     height as number
-    background as Color = black             note: a field can have a value for when none is given
-    color as Color = white
+    background as Color = black of color    note: a field can have a value for when none is given
+    color as Color = white of color
     open as boolean readonly                note: only Python changes it: Plain code can read it, not set it
     mouse_x as number readonly
 end
