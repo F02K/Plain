@@ -34,6 +34,30 @@ Variables are only visible inside the block (and the action) where they are crea
 Actions cannot see variables of the main program: pass values in as parameters.
 Creating a variable with a name that already exists is an error.
 
+### Fixed values
+
+Put `fixed` at the end of a `let` line to make a value that can never be changed:
+
+```
+let pi be 3.14159 fixed
+let max_health be 100 fixed
+let title be "Space Game" fixed
+
+action area takes(radius) do
+    return pi * radius * radius       note: a top-level fixed value is known inside actions
+end
+
+set pi to 3                           note: Error: 'pi' is fixed, so it cannot be changed.
+```
+
+- A fixed name cannot be changed in any way: no `set`, and for a list or a thing no `add`, `remove`, `sort`,
+  `set list at ...` or `set field of ...` through that name.
+- A `let ... fixed` line at the top level of the program (not inside an `if`, a loop or an action) whose value is made of
+  numbers, text, `true`/`false` and other fixed values (`let tau be pi * 2 fixed`) is known **everywhere**, also in
+  actions and in imported files. It is made before the program starts, so it can be used on any line.
+- Any other `let ... fixed` is only read-only where it is made (for example `let name be input "Name?" fixed`).
+- A fixed value cannot share its name with a parameter or another variable.
+
 ## Operators
 
 | Precedence | Operators |
@@ -293,6 +317,7 @@ say distance(Point(x: 0, y: 0), Point(x: 6, y: 8))      note: 10
   used only once (Plain tells you where the first one is).
 - A file can import other files, but not in a circle. Every file is read once.
 - If the mistake is inside the imported file, the message shows that file and line (the IDE opens it).
+- An imported file may also hold `let ... fixed` values (a library of constants).
 - The imports go in the first lines. A built-in module wins over a file with the same name.
 
 ## Errors
@@ -308,13 +333,34 @@ end
 `catch <name> then` gives the error message as a `text` in the variable you name.
 Without `try`, a runtime error stops the program with the line number and a reason.
 
+Make an error of your own with `fail` and a text:
+
+```
+action heal takes(health, amount) do
+    if amount < 0 then
+        fail "Healing cannot be negative."
+    end
+    return health + amount
+end
+
+try
+    say heal(50, -5)
+catch error then
+    say "Problem: " + error          note: Problem: Healing cannot be negative.
+end
+```
+
+`fail` stops the action and the program at that line, just like a built-in error
+(`Error in line 3: Healing cannot be negative.`), unless a `try` around it catches it.
+An action that ends with `fail` on some way does not need a `return` there.
+
 ## Reserved words
 
 `let be set to say input if then else end repeat times while do for each in stop skip
-action run return define as list of at add remove from sort try catch import and or not mod true
+action run return fail define as list of at add remove from sort try catch import and or not mod true
 false nothing` (`note:` starts a comment).
 
-`takes` and `step` are only special in the place where they belong, so they still work as names of your own.
+`takes`, `step` and `fixed` are only special in the place where they belong, so they still work as names of your own.
 
 The built-in helpers (`length`, `upper`, `lower`, `round`, `abs`, `sqrt`, `trim`, `number`, `text`, `random`, `min`,
 `max`, `part`, `contains`, `index_of`, `starts_with`, `ends_with`, `replace`, `split`, `join`) cannot be used as names of

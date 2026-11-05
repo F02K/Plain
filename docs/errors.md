@@ -37,8 +37,12 @@ Hint: An action only knows its own parameters and variables. Pass other values i
 | `A text cannot be changed letter by letter.` | `set t at 0 to "x"` works for lists only. Build a new text with `part` and `+`. |
 | `I don't know a module called 'x'.` | `import x` found no module and no file `x.plain` next to the program. The hint lists both. |
 | `The file 'x' is already imported.` / `... the imports go in a circle.` | Import every file once; two files cannot import each other. |
-| `A file that is imported can only contain 'import', 'define' and 'action'.` | Move lines that *do* something into the main program. |
+| `A file that is imported can only contain 'import', 'define', 'action' and 'let ... fixed'.` | Move lines that *do* something into the main program. |
 | `'x' is already defined in the file lib.plain, line 3.` | A name can be used once only, across all imported files. |
+| `'pi' is fixed, so it cannot be changed.` | The name was made with `let pi be ... fixed`. Take `fixed` away if it has to change. This also covers `add`, `remove`, `sort` and changing a field through a fixed name. |
+| `'x' is already a fixed value of the program.` / `The parameter 'x' has the name of a fixed value.` | A top-level fixed value is known everywhere, so no variable or parameter may have its name. |
+| `I don't know a variable called 'name'.` (in an action, for a fixed value) | Only fixed values made of plain numbers, text and `true`/`false` are known inside actions. Pass others in as a parameter. |
+| `'fail' needs a text as its message ...` | Write `fail "Something went wrong"`. |
 
 When an error happens inside an action, a note tells you which action and with which argument types it was compiled.
 An action that is never called is checked too; the note then says so.
@@ -58,6 +62,7 @@ Error in line 2: Cannot divide by zero.
 | `That list position does not exist ...` | Index outside the list; the first item is at position 0. |
 | `That position does not exist in this text ...` | `text at 9` is past the last letter; the first letter is at position 0. |
 | `The step of a 'for' loop cannot be 0.` | `for i from 1 to 10 step 0` would never end. |
+| *your own message* | Made by `fail "..."` in the program. Catch it with `try`. |
 | `'replace' needs a text to look for, but it is empty.` | `replace(text, "", ...)` has nothing to replace. |
 | `The computer ran out of memory.` | Allocation failed. |
 

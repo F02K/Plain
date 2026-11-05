@@ -1,0 +1,4 @@
+let limit be 3 fixed
+action f takes(limit) do
+    say limit
+end

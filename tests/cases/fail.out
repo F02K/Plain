@@ -1,0 +1,8 @@
+60
+Problem: Healing cannot be negative.
+Age -1 is not possible.
+99
+Nobody is that old.
+caught inner
+caught again: inner
+Error in line 6: Healing cannot be negative.

@@ -161,9 +161,9 @@ class Parser:
         for node in program.body:
             if isinstance(node, N.DefineStruct) and node.line == 0 and node.name in module_types:
                 continue        # a type of a module: it is added once for the whole program
-            if not isinstance(node, (N.DefineStruct, N.ActionDef)):
-                raise PlainError("A file that is imported can only contain 'import', 'define' and 'action'.",
-                                 node.line, node.col,
+            if not isinstance(node, (N.DefineStruct, N.ActionDef)) and not (isinstance(node, N.Let) and node.fixed):
+                raise PlainError("A file that is imported can only contain 'import', 'define', 'action' "
+                                 "and 'let ... fixed'.", node.line, node.col,
                                  "Lines that do something belong in the main program.", file=path)
             if node.file is None:
                 node.file = path
@@ -194,6 +194,7 @@ class Parser:
                 "for": self.parse_for, "stop": self.parse_stop, "skip": self.parse_skip,
                 "return": self.parse_return, "add": self.parse_add, "remove": self.parse_remove,
                 "try": self.parse_try, "sort": self.parse_sort, "run": self.parse_run,
+                "fail": self.parse_fail,
             }.get(tok.value)
             if tok.value == "import":
                 self.error(tok, "'import' must be at the top of the program, before everything else.",
@@ -352,8 +353,21 @@ class Parser:
             value = N.ListInit(self.parse_type(), line=ltok.line, col=ltok.col)
         else:
             value = self.parse_expr()
+        fixed = False
+        if word(self.cur, "fixed"):             # let pi be 3.14159 fixed
+            self.advance()
+            fixed = True
         self.end_statement()
-        return N.Let(name.value, value, line=start.line, col=start.col)
+        return N.Let(name.value, value, fixed, line=start.line, col=start.col)
+
+    def parse_fail(self):
+        """fail "message": stop with an error of your own."""
+        start = self.advance()
+        if self.cur.kind in ("NEWLINE", "EOF"):
+            self.error(self.cur, "'fail' needs a message.", 'Write: fail "Something went wrong"')
+        value = self.parse_expr()
+        self.end_statement()
+        return N.Fail(value, line=start.line, col=start.col)
 
     def parse_set(self):
         start = self.advance()

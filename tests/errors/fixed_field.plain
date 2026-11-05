@@ -1,0 +1,5 @@
+define P as
+    x as number
+end
+let p be P(x: 1) fixed
+set x of p to 2

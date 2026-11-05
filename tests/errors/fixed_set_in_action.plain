@@ -1,0 +1,5 @@
+let limit be 10 fixed
+action f do
+    set limit to 1
+end
+run f()

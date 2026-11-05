@@ -1,0 +1,37 @@
+note: let ... fixed makes a value that can never be changed. At the top level it is known in every action.
+let pi be 3.14159 fixed
+let tau be pi * 2 fixed
+let title be "Space Game" fixed
+let max_health be 100 fixed
+let hard be true fixed
+let negative be -5 fixed
+
+action area takes(radius) do
+    return pi * radius * radius
+end
+
+action heal takes(health, amount) do
+    return min(health + amount, max_health)
+end
+
+action describe do
+    if hard then
+        return title + " (hard)"
+    end
+    return title
+end
+
+say describe()
+say area(2)
+say tau
+say negative
+say heal(90, 30)
+
+note: fixed also works inside blocks and actions; there it is just read-only
+let size be 4 fixed
+repeat 2 times
+    let step_size be size * 2 fixed
+    say step_size
+end
+let names be list of text fixed
+say size of names

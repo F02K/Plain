@@ -1,0 +1,2 @@
+'fail' needs a text as its message, but this is a number.
+fail "Something went wrong"

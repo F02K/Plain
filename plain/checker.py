@@ -24,6 +24,7 @@ class FnCtx:
         self.scopes = [{}]
         self.loops = 0
         self.is_main = inst is None
+        self.fixed = set()          # the names in here that were made with 'fixed' (they cannot be changed)
 
 
 class Instance:
@@ -40,6 +41,9 @@ class Checker:
         self.instances = {}
         self.fn = None
         self.cur_file = None        # the file of the definition that is being looked at
+        self.globals = {}           # name -> type of the fixed values that every action can read
+        self.main_only = set()      # top-level fixed names that actions cannot read (their value is not plain)
+        program.constants = []      # their 'let ... fixed' lines, in order (the Python writer needs them)
 
     # ---- small helpers -------------------------------------------------------
 
@@ -59,6 +63,9 @@ class Checker:
     # ---- scopes --------------------------------------------------------------
 
     def declare(self, name, t, node):
+        if name in self.globals:
+            self.error(node, f"'{name}' is already a fixed value of the program.",
+                       "Pick another name for the variable.")
         for scope in self.fn.scopes:
             if name in scope:
                 self.error(node, f"There is already a variable called '{name}'.",
@@ -69,9 +76,14 @@ class Checker:
         for scope in reversed(self.fn.scopes):
             if name in scope:
                 return scope[name]
+        if name in self.globals:
+            return self.globals[name]
         known = [n for sc in self.fn.scopes for n in sc]
         close = difflib.get_close_matches(name, known, n=1)
-        if close:
+        if not self.fn.is_main and name in self.main_only:
+            hint = (f"'{name}' is fixed, but actions only know fixed values made of plain numbers, text and "
+                    "true/false (or calculated from those). Pass it in as a parameter.")
+        elif close:
             hint = f"Did you mean '{close[0]}'?"
         elif not self.fn.is_main:
             hint = "An action only knows its own parameters and variables. Pass other values in as parameters."
@@ -128,6 +140,54 @@ class Checker:
                 fields[fname] = ftype
             sd.layout = fields
         self.cur_file = None
+        self.collect_constants()
+
+    def collect_constants(self):
+        """Top-level 'let ... fixed' lines with a plain value (numbers, text, true/false, other fixed values and
+        calculations with them) are known everywhere, also inside actions. They are made before the program starts."""
+        self.fn = FnCtx()
+        for stmt in self.program.body:
+            if isinstance(stmt, N.Let) and stmt.fixed and self.is_constant(stmt.value):
+                self.cur_file = stmt.file
+                if stmt.name in self.globals:
+                    self.error(stmt, f"There is already a fixed value called '{stmt.name}'.")
+                self.globals[stmt.name] = self.expr(stmt.value)
+                self.program.constants.append(stmt)
+            elif isinstance(stmt, N.Let) and stmt.fixed:
+                self.main_only.add(stmt.name)
+        self.fn, self.cur_file = None, None
+        for action in self.actions.values():
+            for p in action.params:
+                if p in self.globals:
+                    self.cur_file = action.file
+                    self.error(action, f"The parameter '{p}' has the name of a fixed value.",
+                               "Pick another name for the parameter.")
+
+    def is_constant(self, node):
+        if isinstance(node, (N.Num, N.Str, N.Bool)):
+            return True
+        if isinstance(node, N.Unary):
+            return self.is_constant(node.operand)
+        if isinstance(node, N.Binary):
+            return self.is_constant(node.left) and self.is_constant(node.right)
+        if isinstance(node, N.Var):
+            return node.name in self.globals
+        return False
+
+    def is_fixed(self, name):
+        for scope in self.fn.scopes:
+            if name in scope:
+                return name in self.fn.fixed
+        return name in self.globals
+
+    def check_changeable(self, target):
+        """Nothing that was made with 'fixed' may be changed: not set, and no adding to or sorting of a fixed list."""
+        node = target
+        while isinstance(node, (N.Field, N.Index)):
+            node = node.obj
+        if isinstance(node, N.Var) and self.is_fixed(node.name):
+            self.error(node, f"'{node.name}' is fixed, so it cannot be changed.",
+                       f"If it has to change, take 'fixed' away from the line that creates '{node.name}'.")
 
     def first_definition(self, name):
         """Where a name was defined first, for the hint of an error about a name that is used twice."""
@@ -149,6 +209,8 @@ class Checker:
         getattr(self, "s_" + type(stmt).__name__)(stmt)
 
     def s_Let(self, s):
+        if s in self.program.constants:         # a fixed value of the whole program: known already
+            return
         if isinstance(s.value, N.ListInit):
             t = T.list_of(self.check_type(s.value.element_type, s.value))
         else:
@@ -156,9 +218,12 @@ class Checker:
             if t == T.NOTHING:
                 self.error(s.value, "This gives no value, so it cannot be stored in a variable.")
         self.declare(s.name, t, s)
+        if s.fixed:
+            self.fn.fixed.add(s.name)
 
     def s_Set(self, s):
         target = s.target
+        self.check_changeable(target)
         if isinstance(target, N.Var):
             vt = self.lookup(target.name, target)
             self.expect_type(vt, self.expr(s.value), s.value, f"the variable '{target.name}'")
@@ -244,22 +309,32 @@ class Checker:
                           f"but here it returns {self.describe(t)}.",
                        "An action must always return the same kind of value.")
 
+    def s_Fail(self, s):
+        t = self.expr(s.value)
+        if t not in (T.TEXT, T.ANY):
+            self.error(s.value, f"'fail' needs a text as its message, but this is {self.describe(t)}.",
+                       'For example: fail "Something went wrong"')
+
     def s_ExprStmt(self, s):
         self.call(s.expr, want_value=False)
 
     def s_Add(self, s):
+        self.check_changeable(s.target)
         item = self.list_type(self.expr(s.target), s.target, "add")
         self.expect_type(item, self.expr(s.item), s.item, "this list")
 
     def s_Remove(self, s):
+        self.check_changeable(s.target)
         item = self.list_type(self.expr(s.target), s.target, "remove")
         self.expect_type(item, self.expr(s.item), s.item, "this list")
 
     def s_RemoveAt(self, s):
+        self.check_changeable(s.target)
         self.list_type(self.expr(s.target), s.target, "remove at")
         self.expect_number(self.expr(s.index), s.index, "A list position")
 
     def s_Sort(self, s):
+        self.check_changeable(s.target)
         lt = self.expr(s.target)
         if lt != T.ANY and (not T.is_list(lt) or lt[1] not in (T.NUMBER, T.TEXT)):
             self.error(s.target, f"'sort' needs a list of numbers or text, but this is {self.describe(lt)}.")
@@ -517,7 +592,7 @@ class Checker:
     def ends_in_return(self, body):
         """True when every way through these statements ends with a 'return'."""
         for s in body:
-            if isinstance(s, N.Return):
+            if isinstance(s, (N.Return, N.Fail)):
                 return True
             if isinstance(s, N.If) and s.else_body is not None \
                     and all(self.ends_in_return(b) for _cond, b in s.branches) and self.ends_in_return(s.else_body):

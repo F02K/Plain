@@ -171,6 +171,16 @@ class IdeTest(unittest.TestCase):
         self.assertIn("4.4", helpers)                          # 'number' in 'number of' is a helper
         self.assertIn("5.23", helpers)                         # 'step' in a counting loop
 
+    def test_fixed_and_fail_are_colored(self):
+        doc = self.app.documents.current()
+        doc.set_text('let pi be 3.14 fixed\nlet fixed be 2\nfail "x"\n')
+        self.pump()
+        helpers = [str(r) for r in doc.text.tag_ranges("helper")]
+        keywords = [str(r) for r in doc.text.tag_ranges("keyword")]
+        self.assertIn("1.15", helpers)                         # 'fixed' at the end of a let line
+        self.assertNotIn("2.4", helpers)                       # a variable that is called fixed is a name
+        self.assertIn("3.0", keywords)                         # 'fail'
+
     def test_a_text_file_opens_as_text(self):
         self.open_project()
         doc = self.app.documents.open_path(self.path("notes.txt"))
