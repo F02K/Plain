@@ -1,0 +1,14 @@
+note: The multiplication table, with counting loops.
+for row from 1 to 5 do
+    let line be ""
+    for column from 1 to 5 do
+        set line to line + text of (row * column) + "  "
+    end
+    say trim of line
+end
+
+say "Countdown:"
+for i from 5 to 1 step -1 do
+    say i
+end
+say "Liftoff!"

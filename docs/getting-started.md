@@ -80,7 +80,19 @@ while i <= 5 do
 end
 ```
 
-Use `stop` to leave a loop early and `skip` to jump to the next round.
+When you know how often to count, a counting loop is shorter:
+
+```
+for i from 1 to 5 do
+    say i
+end
+
+for i from 10 to 0 step -2 do      note: counting down needs a negative step
+    say i
+end
+```
+
+The end is included. Use `stop` to leave a loop early and `skip` to jump to the next round.
 
 ## 6. Actions
 
@@ -94,7 +106,21 @@ end
 say square(7)
 ```
 
-## 7. Your own types and lists
+## 7. Working with text
+
+```
+let word be "plain"
+say word at 0                          note: p  (the first letter is at position 0)
+for each letter in word do
+    say upper of letter
+end
+
+let colors be split("red,green,blue", ",")
+say join(colors, " and ")
+say number of "20" + 1                 note: 21  (a text made of a number becomes a number)
+```
+
+## 8. Your own types and lists
 
 ```
 define Enemy as
@@ -111,7 +137,7 @@ for each enemy in enemies do
 end
 ```
 
-## 8. A complete program
+## 9. A complete program
 
 See [`examples/game.plain`](../examples/game.plain) for a small game simulation
 that uses types, lists, actions and loops together.

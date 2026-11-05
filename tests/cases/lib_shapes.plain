@@ -1,0 +1,15 @@
+note: A small library. It can only hold define, action and import.
+define Point as
+    x as number
+    y as number
+end
+
+action distance takes(a, b) do
+    let dx be x of a - x of b
+    let dy be y of a - y of b
+    return sqrt of (dx * dx + dy * dy)
+end
+
+action describe takes(p) do
+    return "(" + x of p + ", " + y of p + ")"
+end

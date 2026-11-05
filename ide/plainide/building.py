@@ -59,7 +59,7 @@ class BuildController:
             with open(info.main_path, encoding="utf-8") as f:
                 source = f.read()
             app.output.write(format_error(err, source, info.main) + "\n", "err")
-            tab = app.documents.find(info.main_path)
+            tab = app.documents.open_path(err.file) if err.file else app.documents.find(info.main_path)
             if tab:
                 tab.mark_line(err.line)
             return None

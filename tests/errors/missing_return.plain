@@ -1,0 +1,6 @@
+action pick takes(flag) do
+    if flag then
+        return 1
+    end
+end
+say pick(true)

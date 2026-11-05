@@ -1,12 +1,14 @@
 """Parser: turns tokens into a syntax tree (recursive descent)."""
 
 import copy
+import difflib
+import os
 
 from . import modules as M
 from . import nodes as N
 from . import typesys as T
 from .errors import PlainError
-from .lexer import describe
+from .lexer import KEYWORDS, describe, tokenize
 
 BLOCK_END = ("end", "else", "catch")
 COMPARE_OPS = ("=", "<", ">", "<=", ">=")
@@ -17,11 +19,17 @@ def word(tok, name):
 
 
 class Parser:
-    def __init__(self, tokens):
+    def __init__(self, tokens, base_dir=None, shared=None, chain=()):
         self.toks = tokens
         self.i = 0
         self.no_at = 0  # > 0 while 'at' must not be read as a list index (draw text ... at x, y)
-        self.modules = []   # the modules this program imported
+        self.modules = []   # the modules this file imported (their sentences can be used here)
+        self.all_modules = []   # those, and the modules that the imported files need
+        self.base_dir = base_dir            # where 'import name' looks for name.plain
+        self.shared = shared if shared is not None else {"done": set()}     # files already brought in
+        self.chain = chain                  # the files that are being read right now (to find circles)
+        self.local = []                     # (name, path) of the own files this file imported
+        self.imported = []                  # definitions that came from imported own files
 
     # ---- token helpers -----------------------------------------------------
 
@@ -48,6 +56,8 @@ class Parser:
     def expect_kw(self, word, hint=None):
         tok = self.cur
         if not tok.is_kw(word):
+            if tok.kind == "NAME" and tok.value.lower() == word:
+                hint = f"Keywords are written with small letters: {word}"
             self.error(tok, f"I expected '{word}' here but found {describe(tok)}.", hint)
         return self.advance()
 
@@ -73,8 +83,14 @@ class Parser:
         elif tok.kind == "EOF" or tok.is_kw(*BLOCK_END):
             pass
         else:
-            self.error(tok, f"I did not expect {describe(tok)} here.",
-                       "Every statement goes on its own line.")
+            before = self.toks[self.i - 1] if self.i else None
+            hint = "Every statement goes on its own line."
+            if before is not None and before.kind == "NAME" and tok.kind in ("NAME", "TEXT", "NUMBER"):
+                hint = (f"I do not know a command or helper called '{before.value}' that goes with {describe(tok)}. "
+                        "Check the spelling. Values are joined with +, and every statement goes on its own line.")
+            if tok.kind == "NAME" and tok.value.lower() in KEYWORDS:
+                hint = f"Keywords are written with small letters: {tok.value.lower()}"
+            self.error(tok, f"I did not expect {describe(tok)} here.", hint)
 
     # ---- program and blocks ------------------------------------------------
 
@@ -87,21 +103,74 @@ class Parser:
         while self.cur.kind != "EOF":
             body.append(self.parse_statement(top_level=True))
             self.skip_newlines()
-        types = [node for module in self.modules for node in module.struct_nodes()]
-        return N.Program(types + body, [m.name for m in self.modules])
+        types = [node for module in self.all_modules for node in module.struct_nodes()]
+        return N.Program(types + self.imported + body, [m.name for m in self.all_modules])
 
     def parse_import(self):
         start = self.advance()
         name = self.expect_name("a module name")
         module = M.load(name.value)
         if module is None:
-            known = ", ".join(M.available()) or "none"
-            self.error(name, f"I don't know a module called '{name.value}'.", f"The modules are: {known}")
-        if module in self.modules:
-            self.error(name, f"The module '{name.value}' is already imported.")
-        self.modules.append(module)
+            self.import_file(name)
+        else:
+            if module in self.modules:
+                self.error(name, f"The module '{name.value}' is already imported.")
+            self.modules.append(module)
+            if module not in self.all_modules:
+                self.all_modules.append(module)
         self.end_statement()
         return start
+
+    def import_file(self, name):
+        """import lib: bring in the actions and types of lib.plain, which lies next to this program."""
+        known = ", ".join(M.available()) or "none"
+        if not self.base_dir:
+            self.error(name, f"I don't know a module called '{name.value}'.",
+                       f"The modules are: {known}. To import your own file, save this program first: "
+                       f"the file '{name.value}.plain' is looked for next to it.")
+        path = os.path.abspath(os.path.join(self.base_dir, name.value + ".plain"))
+        key = os.path.normcase(path)
+        if not os.path.isfile(path):
+            mine = sorted(f[:-6] for f in os.listdir(self.base_dir) if f.endswith(".plain"))
+            more = f" Your own files next to this program: {', '.join(mine[:8])}{', ...' if len(mine) > 8 else ''}." \
+                if mine else ""
+            self.error(name, f"I don't know a module called '{name.value}'.",
+                       f"The modules are: {known}. There is no file '{name.value}.plain' next to this program.{more}")
+        if key in self.chain:
+            self.error(name, f"'{name.value}' imports this file again, so the imports go in a circle.",
+                       "Move what both files need into a third file that imports nothing.")
+        if any(k == key for _n, k in self.local):
+            self.error(name, f"The file '{name.value}' is already imported.")
+        self.local.append((name.value, key))
+        if key in self.shared["done"]:
+            return              # another file has brought it in already
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except OSError as exc:
+            self.error(name, f"I cannot read '{name.value}.plain': {exc.strerror}.")
+        try:
+            sub = Parser(tokenize(text), os.path.dirname(path), self.shared, self.chain + (key,))
+            program = sub.parse_program()
+        except PlainError as err:
+            if err.file is None:
+                err.file = path
+            raise
+        self.shared["done"].add(key)
+        module_types = {n.name for m in sub.all_modules for n in m.struct_nodes()}
+        for node in program.body:
+            if isinstance(node, N.DefineStruct) and node.line == 0 and node.name in module_types:
+                continue        # a type of a module: it is added once for the whole program
+            if not isinstance(node, (N.DefineStruct, N.ActionDef)):
+                raise PlainError("A file that is imported can only contain 'import', 'define' and 'action'.",
+                                 node.line, node.col,
+                                 "Lines that do something belong in the main program.", file=path)
+            if node.file is None:
+                node.file = path
+            self.imported.append(node)
+        for module in sub.all_modules:
+            if module not in self.all_modules:
+                self.all_modules.append(module)
 
     def parse_block(self, stops, opener, what):
         body = []
@@ -143,6 +212,9 @@ class Parser:
                 hint = "To run an action write: run name(values). 'do' only ends the head of a while, for each or action."
             self.error(tok, f"I did not expect {describe(tok)} here.", hint)
         if tok.kind == "NAME":
+            if tok.value.lower() in KEYWORDS and tok.value != tok.value.lower():
+                self.error(tok, f"'{tok.value}' should be written with small letters.",
+                           f"Keywords are written with small letters: {tok.value.lower()}")
             sentence = self.parse_module_command()
             if sentence is not None:
                 return sentence
@@ -240,6 +312,14 @@ class Parser:
         if self.peek().is_sym("="):
             self.error(self.peek(), "'=' only compares values in Plain.",
                        f"To change a variable write: set {start.value} to ...")
+        following = self.peek()
+        if start.kind == "NAME" and following.kind in ("NAME", "TEXT", "NUMBER") and not following.is_kw("of", "at"):
+            known = sorted(KEYWORDS - {"be", "to", "then", "do", "end", "else", "in", "as", "of", "at", "from", "times",
+                                       "each", "catch", "and", "or", "not", "mod", "true", "false", "nothing", "list"})
+            close = difflib.get_close_matches(start.value, known, n=1)
+            hint = (f"Did you mean '{close[0]}'?" if close else
+                    "The commands are: " + ", ".join(known) + ".")
+            self.error(start, f"I do not know a command called '{start.value}'.", hint)
         expr = self.parse_expr()
         if isinstance(expr, N.Call) and start.kind == "NAME" and start.value == expr.name:
             self.error(start, f"To run the action '{start.value}' start the line with 'run'.",
@@ -336,6 +416,11 @@ class Parser:
 
     def parse_for(self):
         start = self.advance()
+        if self.cur.kind == "NAME" and self.peek().is_kw("from"):
+            return self.parse_for_count(start)
+        if not self.cur.is_kw("each"):
+            self.error(self.cur, f"I expected 'each' or a name here but found {describe(self.cur)}.",
+                       "Write: for each item in items do    or    for i from 1 to 10 do")
         self.expect_kw("each", "Write: for each item in items do")
         var = self.expect_name("a variable name")
         self.expect_kw("in", "Write: for each item in items do")
@@ -345,6 +430,24 @@ class Parser:
         self.expect_kw("end")
         self.end_statement()
         return N.ForEach(var.value, iterable, body, line=start.line, col=start.col)
+
+    def parse_for_count(self, start):
+        """for i from 1 to 10 do ... end     (optional: step 2, or step -1 to count down)"""
+        hint = "Write: for i from 1 to 10 do    or    for i from 10 to 1 step -1 do"
+        var = self.advance()
+        self.expect_kw("from", hint)
+        first = self.parse_expr()
+        self.expect_kw("to", hint)
+        last = self.parse_expr()
+        step = None
+        if word(self.cur, "step"):
+            self.advance()
+            step = self.parse_expr()
+        self.expect_kw("do", hint)
+        body = self.parse_block(("end",), start, "'for'")
+        self.expect_kw("end")
+        self.end_statement()
+        return N.ForCount(var.value, first, last, step, body, line=start.line, col=start.col)
 
     def parse_stop(self):
         start = self.advance()
@@ -606,5 +709,6 @@ class Parser:
         return N.Call(name_tok.value, args, named, line=name_tok.line, col=name_tok.col)
 
 
-def parse(tokens):
-    return Parser(tokens).parse_program()
+def parse(tokens, base_dir=None):
+    """base_dir: the folder of the program; 'import name' looks there for name.plain."""
+    return Parser(tokens, base_dir).parse_program()

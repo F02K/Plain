@@ -6,6 +6,7 @@ time, so a program that passes the checker cannot mix up numbers, text and lists
 """
 
 import difflib
+import os
 
 from . import library as L
 from . import modules as M
@@ -17,8 +18,9 @@ from .errors import PlainError
 class FnCtx:
     """What the checker knows about the code it is looking at right now."""
 
-    def __init__(self, inst=None):
+    def __init__(self, inst=None, file=None):
         self.inst = inst
+        self.file = file            # the imported file the code comes from (None: the program itself)
         self.scopes = [{}]
         self.loops = 0
         self.is_main = inst is None
@@ -37,12 +39,14 @@ class Checker:
         self.actions = {}
         self.instances = {}
         self.fn = None
+        self.cur_file = None        # the file of the definition that is being looked at
 
     # ---- small helpers -------------------------------------------------------
 
     def error(self, node, message, hint=None):
+        file = (self.fn.file if self.fn else None) or getattr(node, "file", None) or self.cur_file
         raise PlainError(message, getattr(node, "line", None) or None,
-                         getattr(node, "col", None) or None, hint)
+                         getattr(node, "col", None) or None, hint, file=file)
 
     def check_type(self, t, node):
         if T.is_list(t):
@@ -83,13 +87,23 @@ class Checker:
         for stmt in self.program.body:
             if not isinstance(stmt, (N.DefineStruct, N.ActionDef)):
                 self.statement(stmt)
+        self.check_unused_actions()
+
+    def check_unused_actions(self):
+        """An action that is never called still gets checked, with values of unknown type, so that
+        a mistake in it (a wrong name, a missing 'return') is found now and not when it is used later."""
+        used = {name for name, _types in self.instances}
+        for name, action in self.actions.items():
+            if name not in used:
+                self.instance(action, (T.ANY,) * len(action.params))
 
     def collect_definitions(self):
         for stmt in self.program.body:
             if isinstance(stmt, N.DefineStruct):
                 if stmt.name in self.structs or stmt.name in T.PRIMITIVES or stmt.name == "nothing" \
                         or stmt.name in L.CALLS:
-                    self.error(stmt, f"The type '{stmt.name}' is defined twice or is a built-in name.")
+                    self.error(stmt, f"The type '{stmt.name}' is defined twice or is a built-in name.",
+                               self.first_definition(stmt.name))
                 self.structs[stmt.name] = stmt
         for stmt in self.program.body:
             if isinstance(stmt, N.ActionDef):
@@ -97,20 +111,31 @@ class Checker:
                     self.error(stmt, f"'{stmt.name}' is a built-in helper, so it cannot be used as an action name.",
                                "Pick another name.")
                 if stmt.name in self.actions or stmt.name in self.structs:
-                    self.error(stmt, f"The name '{stmt.name}' is already used by an action or a type.")
+                    self.error(stmt, f"The name '{stmt.name}' is already used by an action or a type.",
+                               self.first_definition(stmt.name))
                 if len(set(stmt.params)) != len(stmt.params):
                     self.error(stmt, "Two parameters have the same name.")
                 self.actions[stmt.name] = stmt
         for name, sd in list(self.structs.items()):
             fields = {}
+            self.cur_file = sd.file
             if not sd.fields:
                 self.error(sd, f"The type '{name}' has no fields.")
             for fname, ftype, fline in sd.fields:
                 if fname in fields:
-                    raise PlainError(f"The field '{fname}' appears twice in '{name}'.", fline)
+                    self.error(N.Node(line=fline), f"The field '{fname}' appears twice in '{name}'.")
                 self.check_type(ftype, N.Node(line=fline))
                 fields[fname] = ftype
             sd.layout = fields
+        self.cur_file = None
+
+    def first_definition(self, name):
+        """Where a name was defined first, for the hint of an error about a name that is used twice."""
+        node = self.structs.get(name) or self.actions.get(name)
+        if node is None:
+            return None
+        where = f"the file {os.path.basename(node.file)}" if node.file else "this program"
+        return f"'{name}' is already defined in {where}, line {node.line}. Every name can be used only once."
 
     # ---- statements ----------------------------------------------------------
 
@@ -142,14 +167,16 @@ class Checker:
             self.expect_type(ft, self.expr(s.value), s.value, f"the field '{target.name}'")
         else:
             lt = self.expr(target.obj)
-            if not T.is_list(lt):
-                self.error(target, f"'at' only works on lists, but this is {self.describe(lt)}.")
+            if lt == T.TEXT:
+                self.error(target, "A text cannot be changed letter by letter.",
+                           "Build a new text instead, for example: set t to part(t, 0, 2) + \"x\"")
+            item = self.list_type(lt, target, "at")
             self.expect_number(self.expr(target.index), target.index, "A list position")
-            self.expect_type(lt[1], self.expr(s.value), s.value, "this list item")
+            self.expect_type(item, self.expr(s.value), s.value, "this list item")
 
     def s_Say(self, s):
         t = self.expr(s.value)
-        if t not in (T.TEXT, T.NUMBER, T.BOOLEAN, T.NOTHING):
+        if t not in (T.TEXT, T.NUMBER, T.BOOLEAN, T.NOTHING, T.ANY):
             self.error(s.value, f"'say' cannot show {self.describe(t)} directly.",
                        "Say its fields one by one, for example: say health of player")
 
@@ -170,10 +197,24 @@ class Checker:
 
     def s_ForEach(self, s):
         t = self.expr(s.iterable)
-        if not T.is_list(t):
-            self.error(s.iterable, f"'for each' needs a list, but this is {self.describe(t)}.")
+        if t == T.TEXT:
+            item = T.TEXT                   # the letters of a text
+        elif t == T.ANY or T.is_list(t):
+            item = self.list_type(t, s.iterable, "for each")
+        else:
+            self.error(s.iterable, f"'for each' needs a list or a text, but this is {self.describe(t)}.")
         self.fn.scopes.append({})
-        self.declare(s.var, t[1], s)
+        self.declare(s.var, item, s)
+        self.loop_body(s.body)
+        self.fn.scopes.pop()
+
+    def s_ForCount(self, s):
+        self.expect_number(self.expr(s.start), s.start, "The start of a 'for' loop")
+        self.expect_number(self.expr(s.stop), s.stop, "The end of a 'for' loop")
+        if s.step is not None:
+            self.expect_number(self.expr(s.step), s.step, "The step of a 'for' loop")
+        self.fn.scopes.append({})
+        self.declare(s.var, T.NUMBER, s)
         self.loop_body(s.body)
         self.fn.scopes.pop()
 
@@ -195,10 +236,10 @@ class Checker:
             self.error(s, "'return' can only be used inside an action.")
         inst = self.fn.inst
         t = T.NOTHING if s.value is None else self.expr(s.value)
-        if inst.ret is None:
+        if inst.ret is None or inst.ret == T.ANY:
             inst.ret = t
             inst.ret_line = s.line
-        elif inst.ret != t:
+        elif not self.same(inst.ret, t):
             self.error(s, f"This action already returns {self.describe(inst.ret)} (line {inst.ret_line}), "
                           f"but here it returns {self.describe(t)}.",
                        "An action must always return the same kind of value.")
@@ -207,26 +248,20 @@ class Checker:
         self.call(s.expr, want_value=False)
 
     def s_Add(self, s):
-        lt = self.expr(s.target)
-        if not T.is_list(lt):
-            self.error(s.target, f"'add' needs a list, but this is {self.describe(lt)}.")
-        self.expect_type(lt[1], self.expr(s.item), s.item, "this list")
+        item = self.list_type(self.expr(s.target), s.target, "add")
+        self.expect_type(item, self.expr(s.item), s.item, "this list")
 
     def s_Remove(self, s):
-        lt = self.expr(s.target)
-        if not T.is_list(lt):
-            self.error(s.target, f"'remove' needs a list, but this is {self.describe(lt)}.")
-        self.expect_type(lt[1], self.expr(s.item), s.item, "this list")
+        item = self.list_type(self.expr(s.target), s.target, "remove")
+        self.expect_type(item, self.expr(s.item), s.item, "this list")
 
     def s_RemoveAt(self, s):
-        lt = self.expr(s.target)
-        if not T.is_list(lt):
-            self.error(s.target, f"'remove at' needs a list, but this is {self.describe(lt)}.")
+        self.list_type(self.expr(s.target), s.target, "remove at")
         self.expect_number(self.expr(s.index), s.index, "A list position")
 
     def s_Sort(self, s):
         lt = self.expr(s.target)
-        if not T.is_list(lt) or lt[1] not in (T.NUMBER, T.TEXT):
+        if lt != T.ANY and (not T.is_list(lt) or lt[1] not in (T.NUMBER, T.TEXT)):
             self.error(s.target, f"'sort' needs a list of numbers or text, but this is {self.describe(lt)}.")
 
     def s_Try(self, s):
@@ -238,7 +273,20 @@ class Checker:
 
     # ---- type helpers --------------------------------------------------------
 
+    def same(self, want, got):
+        return want == got or T.ANY in (want, got)
+
+    def list_type(self, t, node, what):
+        """The type of the items of a list (any, when the list itself is not known)."""
+        if t == T.ANY:
+            return T.ANY
+        if not T.is_list(t):
+            self.error(node, f"'{what}' needs a list, but this is {self.describe(t)}.")
+        return t[1]
+
     def describe(self, t):
+        if t == T.ANY:
+            return "a value"
         if t == T.NOTHING:
             return "nothing"
         if t in T.PRIMITIVES:
@@ -248,20 +296,22 @@ class Checker:
         return f"a '{t[1]}'"
 
     def expect_type(self, want, got, node, what):
-        if want != got:
+        if not self.same(want, got):
             self.error(node, f"{what.capitalize()} holds {self.describe(want)}, but this value is {self.describe(got)}.")
 
     def expect_number(self, t, node, what):
-        if t != T.NUMBER:
+        if t not in (T.NUMBER, T.ANY):
             self.error(node, f"{what} must be a number, but this is {self.describe(t)}.")
 
     def condition(self, node, what):
         t = self.expr(node)
-        if t != T.BOOLEAN:
+        if t not in (T.BOOLEAN, T.ANY):
             self.error(node, f"{what} condition must be true or false, but this is {self.describe(t)}.",
                        "Compare values with =, <, >, <= or >=")
 
     def field_type(self, obj_type, node):
+        if obj_type == T.ANY:
+            return T.ANY
         if not T.is_struct(obj_type):
             self.error(node, f"'{node.name} of ...' needs a thing with fields, but this is {self.describe(obj_type)}.")
         layout = self.structs[obj_type[1]].layout
@@ -298,53 +348,64 @@ class Checker:
         if e.op == "-":
             self.expect_number(t, e.operand, "The value after '-'")
             return T.NUMBER
-        if t != T.BOOLEAN:
+        if t not in (T.BOOLEAN, T.ANY):
             self.error(e.operand, f"'not' needs true or false, but this is {self.describe(t)}.")
         return T.BOOLEAN
 
     def x_Input(self, e):
         t = self.expr(e.prompt)
-        if t != T.TEXT:
+        if t not in (T.TEXT, T.ANY):
             self.error(e.prompt, f"'input' needs a text, but this is {self.describe(t)}.")
         return T.NUMBER if e.as_number else T.TEXT
 
     def x_Field(self, e):
         ot = self.expr(e.obj)
+        if ot == T.ANY:
+            return L.OF[e.name][1] if e.name in L.OF else T.NUMBER if e.name == "size" else T.ANY
         if T.is_list(ot) and e.name == "size":
             return T.NUMBER
         if e.name in L.OF and not T.is_struct(ot):
             want, result = L.OF[e.name]
-            if ot != want:
-                self.error(e, f"'{e.name} of ...' needs {self.describe(want)}, but this is {self.describe(ot)}.")
+            wanted = want if isinstance(want, list) else [want]
+            if ot not in wanted:
+                self.error(e, f"'{e.name} of ...' needs {' or '.join(self.describe(w) for w in wanted)}, "
+                              f"but this is {self.describe(ot)}.")
             return result
         return self.field_type(ot, e)
 
     def x_Index(self, e):
         lt = self.expr(e.obj)
-        if not T.is_list(lt):
-            self.error(e, f"'at' only works on lists, but this is {self.describe(lt)}.")
+        if lt == T.TEXT:                    # one letter of a text
+            self.expect_number(self.expr(e.index), e.index, "A position in a text")
+            return T.TEXT
+        item = self.list_type(lt, e, "at")
         self.expect_number(self.expr(e.index), e.index, "A list position")
-        return lt[1]
+        return item
 
     def x_Binary(self, e):
         op = e.op
         if op in ("and", "or"):
             for side in (e.left, e.right):
                 t = self.expr(side)
-                if t != T.BOOLEAN:
+                if t not in (T.BOOLEAN, T.ANY):
                     self.error(side, f"'{op}' needs true or false on both sides, but this is {self.describe(t)}.",
                                "For example: health > 0 and health < 100")
             return T.BOOLEAN
         lt, rt = self.expr(e.left), self.expr(e.right)
         if op == "+" and (lt == T.TEXT or rt == T.TEXT):
             for t, side in ((lt, e.left), (rt, e.right)):
-                if t not in (T.TEXT, T.NUMBER, T.BOOLEAN):
+                if t not in (T.TEXT, T.NUMBER, T.BOOLEAN, T.ANY):
                     self.error(side, f"I cannot join text with {self.describe(t)}.")
             return T.TEXT
         if op == "=":
-            if lt != rt:
+            if not self.same(lt, rt):
                 self.error(e, f"I cannot compare {self.describe(lt)} with {self.describe(rt)}.")
             return T.BOOLEAN
+        if T.ANY in (lt, rt):               # an action that is never called: the other side must still fit
+            for t, side in ((lt, e.left), (rt, e.right)):
+                if t not in (T.NUMBER, T.ANY) and not (op == "+" and t == T.TEXT):
+                    self.error(e, f"'{op}' needs two numbers, but I got {self.describe(lt)} and {self.describe(rt)}.")
+            return T.BOOLEAN if op in ("<", ">", "<=", ">=") else T.ANY if op == "+" else T.NUMBER
         if lt != T.NUMBER or rt != T.NUMBER:
             hint = "'+' adds numbers or joins text." if op == "+" else None
             self.error(e, f"'{op}' needs two numbers, but I got {self.describe(lt)} and {self.describe(rt)}.", hint)
@@ -396,7 +457,7 @@ class Checker:
         pattern = M.pattern_for(e.module, e.name)
         for arg, want in zip(e.args, pattern.arg_types()):
             t = self.expr(arg)
-            if t != want:
+            if not self.same(want, t):
                 self.error(arg, f"This needs {self.describe(want)} here, but it is {self.describe(t)}.",
                            "Write: " + pattern.example())
         return pattern.result_type()
@@ -417,7 +478,7 @@ class Checker:
                     want = t
                 elif i == 1 and T.is_list(types[0]):
                     want = types[0][1]
-            if t != want:
+            if not self.same(want, t):
                 self.error(arg, f"'{e.name}' needs {self.describe(want)} here, but this is {self.describe(t)}.",
                            f"For example: {L.EXAMPLES[e.name]}")
             types.append(t)
@@ -428,15 +489,22 @@ class Checker:
         if key in self.instances:
             return self.instances[key]
         inst = self.instances[key] = Instance()
-        ctx = FnCtx(inst)
+        ctx = FnCtx(inst, action.file)
         for pname, t in zip(action.params, types):
             ctx.scopes[0][pname] = t
         saved, self.fn = self.fn, ctx
         try:
             self.block(action.body)
+            if inst.ret not in (None, T.NOTHING) and not self.ends_in_return(action.body):
+                self.error(action, f"The action '{action.name}' gives back {self.describe(inst.ret)} "
+                                   f"(line {inst.ret_line}), but it can also end without a 'return'.",
+                           "Add a 'return' at the very end (for example 'return 0'), or an 'else' branch that returns.")
         except PlainError as err:
-            sig = ", ".join(f"{p}: {T.type_name(t)}" for p, t in zip(action.params, types))
-            note = f"this happened inside the action '{action.name}' (called with {sig or 'no values'})"
+            if T.ANY in types:
+                note = f"the action '{action.name}' is never called, so I looked at it without knowing its values"
+            else:
+                sig = ", ".join(f"{p}: {T.type_name(t)}" for p, t in zip(action.params, types))
+                note = f"this happened inside the action '{action.name}' (called with {sig or 'no values'})"
             if note not in err.notes:
                 err.notes.append(note)
             raise
@@ -445,6 +513,18 @@ class Checker:
         if inst.ret is None:
             inst.ret = T.NOTHING
         return inst
+
+    def ends_in_return(self, body):
+        """True when every way through these statements ends with a 'return'."""
+        for s in body:
+            if isinstance(s, N.Return):
+                return True
+            if isinstance(s, N.If) and s.else_body is not None \
+                    and all(self.ends_in_return(b) for _cond, b in s.branches) and self.ends_in_return(s.else_body):
+                return True
+            if isinstance(s, N.Try) and self.ends_in_return(s.body) and self.ends_in_return(s.handler):
+                return True
+        return False
 
     def construct(self, e):
         layout = self.structs[e.name].layout

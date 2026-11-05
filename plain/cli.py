@@ -34,7 +34,7 @@ def main(argv=None):
         return 2
 
     try:
-        py_text = compile_to_python(source)
+        py_text = compile_to_python(source, base_dir=os.path.dirname(os.path.abspath(args.file)))
     except PlainError as err:
         print(format_error(err, source, os.path.basename(args.file)), file=sys.stderr)
         return 1

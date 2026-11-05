@@ -1,0 +1,26 @@
+note: Playing with text: letters, split, join and replace.
+let sentence be "the quick brown fox"
+
+let words be split(sentence, " ")
+say "Words: " + size of words
+
+let shout be ""
+for each word in words do
+    set shout to shout + upper of part(word, 0, 1) + part(word, 1, length of word - 1) + " "
+end
+say trim of shout
+
+let vowels be 0
+for each letter in sentence do
+    if contains("aeiou", letter) then
+        set vowels to vowels + 1
+    end
+end
+say "Vowels: " + vowels
+
+let backwards be ""
+for i from length of sentence - 1 to 0 step -1 do
+    set backwards to backwards + sentence at i
+end
+say backwards
+say replace(sentence, " ", "-")

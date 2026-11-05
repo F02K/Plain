@@ -1,0 +1,2 @@
+let t be "abc"
+set t at 0 to "x"

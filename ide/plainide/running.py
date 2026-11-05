@@ -50,7 +50,7 @@ class RunController:
         try:
             py_path = os.path.join(app.tmp, f"program{run_id}.py")
             with open(py_path, "w", encoding="utf-8") as f:
-                f.write(compile_to_python(source, watch=watch))
+                f.write(compile_to_python(source, watch=watch, base_dir=self.base_dir_of(tab)))
         except PlainError as err:
             self.show_compile_error(tab, source, err)
             return
@@ -60,11 +60,22 @@ class RunController:
             extra_env = {"PLAIN_WATCH": self.watch_file}
         self.start(child_command() + [py_path], extra_env)
 
+    def base_dir_of(self, tab):
+        """Where 'import name' looks for files: next to the program, or in the project folder."""
+        if tab.path:
+            return os.path.dirname(os.path.abspath(tab.path))
+        return self.app.projects.folder
+
     def show_compile_error(self, tab, source, err):
         self.app.output.clear()
         self.set_running(False)
         self.app.output.write(format_error(err, source, tab.name) + "\n", "err")
-        tab.mark_line(err.line)
+        if err.file:                    # the mistake is in an imported file: open it there
+            other = self.app.documents.open_path(err.file)
+            if other is not None:
+                other.mark_line(err.line)
+        else:
+            tab.mark_line(err.line)
 
     def start(self, cmd, extra_env=None):
         self.app.output.clear()

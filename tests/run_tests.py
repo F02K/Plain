@@ -34,7 +34,7 @@ def run_case(path, tmp, env=None):
     name = os.path.splitext(os.path.basename(path))[0]
     source = read(path)
     try:
-        python_text = compile_to_python(source)
+        python_text = compile_to_python(source, base_dir=os.path.dirname(path))
     except PlainError as err:
         return False, format_error(err, source, os.path.basename(path))
     py_path = os.path.join(tmp, name + ".py")
@@ -53,7 +53,7 @@ def run_case(path, tmp, env=None):
 def error_case(path):
     source = read(path)
     try:
-        compile_to_python(source)
+        compile_to_python(source, base_dir=os.path.dirname(path))
     except PlainError as err:
         text = format_error(err, source, os.path.basename(path))
         missing = [line for line in read(path[:-6] + ".err").splitlines() if line and line not in text]
@@ -126,6 +126,8 @@ def main():
             print(detail)
     with tempfile.TemporaryDirectory() as tmp:
         for path in sorted(glob.glob(os.path.join(ROOT, "tests", "cases", "*.plain"))):
+            if not os.path.exists(path[:-6] + ".out"):
+                continue            # a library that the test programs import (see tests/cases/lib_*.plain)
             total += 1
             ok, detail = run_case(path, tmp)
             print(("PASS " if ok else "FAIL ") + os.path.relpath(path, ROOT))
@@ -142,6 +144,8 @@ def main():
                 failures += 1
                 print(detail)
     for path in sorted(glob.glob(os.path.join(ROOT, "tests", "errors", "*.plain"))):
+        if not os.path.exists(path[:-6] + ".err"):
+            continue                # a file that the test programs import
         total += 1
         ok, detail = error_case(path)
         print(("PASS " if ok else "FAIL ") + os.path.relpath(path, ROOT))

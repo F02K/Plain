@@ -162,6 +162,15 @@ class IdeTest(unittest.TestCase):
         self.assertEqual(len(docs.tabs()), 1)
         self.assertIsNone(docs.current().path)
 
+    def test_type_names_and_helpers_have_their_own_colors(self):
+        doc = self.app.documents.current()
+        doc.set_text('define P as\n    n as number\nend\nsay number of "4"\nfor i from 10 to 1 step -1 do\nend\n')
+        self.pump()
+        helpers = [str(r) for r in doc.text.tag_ranges("helper")]
+        self.assertNotIn("2.9", helpers)                       # 'number' in 'n as number' is only a type
+        self.assertIn("4.4", helpers)                          # 'number' in 'number of' is a helper
+        self.assertIn("5.23", helpers)                         # 'step' in a counting loop
+
     def test_a_text_file_opens_as_text(self):
         self.open_project()
         doc = self.app.documents.open_path(self.path("notes.txt"))
@@ -381,6 +390,33 @@ class IdeTest(unittest.TestCase):
         self.app.live_var.set(True)
         self.app.running.run()
         self.assertTrue(self.wait_for(lambda: bool(doc.inline)))
+
+    def test_run_a_program_that_imports_another_file(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n * 2\nend\n')
+        write(self.path("use.plain"), 'import tools\nsay twice(21)\n')
+        self.open_project()
+        doc = self.app.documents.open_path(self.path("use.plain"))
+        self.app.running.run()
+        self.assertTrue(self.wait_for(lambda: "42" in self.app.output.get()))
+
+    def test_a_mistake_in_an_imported_file_opens_that_file(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n + "a" - 1\nend\n')
+        write(self.path("use.plain"), 'import tools\nsay twice(21)\n')
+        self.open_project()
+        self.app.documents.open_path(self.path("use.plain"))
+        self.app.running.run()
+        self.assertIn("Error in tools.plain, line 2", self.app.output.get())
+        shown = self.app.documents.current()
+        self.assertEqual(shown.path, self.path("tools.plain"))
+        self.assertTrue(shown.text.tag_ranges("error_line"))
+
+    def test_an_unsaved_program_imports_from_the_project_folder(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n * 2\nend\n')
+        self.open_project()
+        doc = self.app.documents.new()
+        doc.set_text('import tools\nsay twice(5)\n')
+        self.app.running.run()
+        self.assertTrue(self.wait_for(lambda: "10" in self.app.output.get()))
 
     def test_build_makes_the_python_file(self):
         self.open_project()

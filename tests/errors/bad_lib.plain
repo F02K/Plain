@@ -1,0 +1,5 @@
+action fine do
+    say "ok"
+end
+
+say "this line does something"
