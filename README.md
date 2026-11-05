@@ -52,7 +52,7 @@ cd Plain
 ```
 
 On Windows use `python` (or `py`) instead of `python3`.
-Optional: `pip install .` adds a `plain` command. For a simple editor with a Run button (handy in classrooms) see [`ide/`](ide/README.md). Otherwise use `python3 -m plain`.
+Optional: `pip install .` adds a `plain` command. For an editor that looks like VS Code (project Explorer, tabs, Run button, live values; handy in classrooms) see [`ide/`](ide/README.md). Otherwise use `python3 -m plain`.
 
 ## Usage
 

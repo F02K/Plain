@@ -39,3 +39,8 @@ Push a tag such as `v0.2.0` (or start the *release* workflow by hand on GitHub).
 `plain` and `PlainIDE` for Windows and Linux, packs them with the examples and docs, and
 creates a **draft** release. Check the draft, then publish it.
 To build locally: `pip install pyinstaller`, then `python ide/build.py` (the IDE) and `python packaging/build_cli.py` (the `plain` program).
+
+## The IDE
+
+The IDE is the package `ide/plainide/` (see [ide/README.md](ide/README.md#how-the-code-is-organized) for the map of files).
+Its tests open real windows: `python tests/ide_tests.py` (on Linux without a display: `xvfb-run -a python tests/ide_tests.py`).

@@ -20,6 +20,7 @@ def main():
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--windowed",
         "--name", "PlainIDE",
         "--paths", ROOT,
+        "--paths", HERE,
         "--add-data", os.path.join(ROOT, "examples") + os.pathsep + "examples",
         "--add-data", os.path.join(ROOT, "modules") + os.pathsep + "modules",
         "--distpath", out,

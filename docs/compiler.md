@@ -35,12 +35,12 @@ messages with the line number.
 
 ## The IDE
 
-The IDE (`ide/`) runs the translation with two extras that are switched on only when you ask for them:
+The IDE (`ide/plainide/`) runs the translation with two extras that are switched on only when you ask for them:
 
 - *Live values* and *Value list*: `compile_to_python(source, watch=True)` adds small hooks after assignments,
   conditions, calls and `return`. A background thread writes the latest values to a file a few times per second
   and the IDE shows them behind the code.
-- Clicking a name explains it (`ide/symbols.py`), working on the text only.
+- Clicking a name explains it (`ide/plainide/symbols.py`), working on the text only.
 
 ## Roadmap
 

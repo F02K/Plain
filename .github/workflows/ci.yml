@@ -12,3 +12,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: python tests/run_tests.py
+      - name: IDE tests (Linux, with a virtual display)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          xvfb-run -a python tests/ide_tests.py
+      - name: IDE tests (Windows)
+        if: runner.os == 'Windows'
+        run: python tests/ide_tests.py
