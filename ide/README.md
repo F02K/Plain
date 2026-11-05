@@ -3,8 +3,9 @@
 A small editor for Plain, made for classrooms: one window, one Run button.
 
 - **Tabs** for several files (Ctrl+N new, Ctrl+W close, Ctrl+Tab next, middle click closes)
-- **Projects:** *File > Open folder...* shows the programs of a folder on the left; double-click opens one,
-  **+ New file** adds one to the project
+- **Projects:** a project is a folder with a project file (`MyGame.plainproject`). The first *Save* of a new
+  program asks for a folder and makes the project there. *File > New project*, *Open project* (the
+  `.plainproject` file) and *Open recent project* work as you would expect; **+ New file** adds a program to the project
 - **Auto completion** while you type (keywords, helpers and the names in your program).
   Up/Down choose, Tab or Enter accept, Esc closes, Ctrl+Space opens the list by hand.
   Accepting `if`, `while`, `repeat`, `for`, `action`, `define` or `try` fills in the whole block
@@ -26,6 +27,26 @@ A small editor for Plain, made for classrooms: one window, one Run button.
 - Errors show the faulty line and mark it red in the editor
 - **Examples** menu with the programs from `examples/`, **Help > Quick reference** (F1) as a cheat sheet
 - Bigger / smaller text with Ctrl and + / -
+
+## Run, Build and Release
+
+- **Run (F5)** is the debug mode: the program runs from the IDE, with live values, and needs no project.
+- **Build (F6)** translates the main program of the project to a Python file, `build/MyGame.py`. That file runs
+  anywhere with Python 3.10+: `python build/MyGame.py`.
+- **Release (F7)** builds first and then makes a program from the Python file, `dist/MyGame.exe`, that needs no Python.
+  This needs Python and [PyInstaller](https://pyinstaller.org) on the computer that builds (the IDE offers to install
+  PyInstaller with pip). Programs with a window get no console.
+- *Build > Project settings* changes the name, the main program and the file name of the program.
+  *Build > Show build folder* opens `dist` (or `build`).
+
+The project file is a few lines of text; it can be edited by hand:
+
+```
+note: A Plain project. Open this file in the Plain IDE (File > Open project...).
+name Ball Game
+main ball.plain
+output Ball_Game
+```
 
 ## If something goes wrong
 

@@ -84,14 +84,46 @@ def symbol_checks():
     return True, ""
 
 
+def project_checks():
+    """Projects of the IDE (ide/projects.py): definition file, recent list and the Python build."""
+    sys.path.insert(0, os.path.join(ROOT, "ide"))
+    import projects as P
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = os.path.join(tmp, "My Game")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "main.plain"), "w", encoding="utf-8") as f:
+            f.write("say 6 * 7" + chr(10))
+        project = P.Project(folder, "My Game", "main.plain")
+        project.save()
+        loaded = P.Project.load(project.path)
+        if (loaded.name, loaded.main, loaded.output) != ("My Game", "main.plain", "My_Game"):
+            return False, f"the project file was read back as {(loaded.name, loaded.main, loaded.output)}"
+        if P.Project.find(folder) is None:
+            return False, "the project file was not found in its folder"
+        python_file, imports = P.build_python(loaded)
+        result = subprocess.run([sys.executable, python_file], capture_output=True, text=True)
+        if result.stdout.strip() != "42":
+            return False, f"the built Python file printed {result.stdout!r}"
+        data = os.path.join(tmp, "data")
+        P.add_recent(data, project.path)
+        P.add_recent(data, project.path)
+        if len(P.recent_projects(data)) != 1:
+            return False, "the recent list holds a project twice"
+        os.remove(project.path)
+        if P.recent_projects(data):
+            return False, "the recent list still shows a project whose file is gone"
+    return True, ""
+
+
 def main():
     failures = 0
-    total = 1
-    ok, detail = symbol_checks()
-    print(("PASS " if ok else "FAIL ") + "ide/symbols.py")
-    if not ok:
-        failures += 1
-        print(detail)
+    total = 2
+    for label, check in (("ide/symbols.py", symbol_checks), ("ide/projects.py", project_checks)):
+        ok, detail = check()
+        print(("PASS " if ok else "FAIL ") + label)
+        if not ok:
+            failures += 1
+            print(detail)
     with tempfile.TemporaryDirectory() as tmp:
         for path in sorted(glob.glob(os.path.join(ROOT, "tests", "cases", "*.plain"))):
             total += 1

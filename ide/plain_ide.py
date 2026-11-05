@@ -55,6 +55,7 @@ from plain.toolchain import compile_to_python  # noqa: E402
 
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
+import projects as PROJECTS  # noqa: E402
 from symbols import TOKEN, analyze  # noqa: E402
 
 TITLE = "Plain IDE"
@@ -129,6 +130,8 @@ Comments         note: this is a comment
 In the editor    F5 run, Shift+F5 stop, Ctrl+Space complete, Tab/Enter accept a suggestion
                  Ctrl+N new tab, Ctrl+W close tab, Ctrl+Tab next tab, Ctrl+O open, Ctrl+S save
                  'if', 'while', 'repeat', 'for', 'action', 'define' and 'try' fill in a whole block
+Projects         Build (F6) makes a Python file, Release (F7) makes a program (exe) from it
+                 File > New project / Open project / Open recent project; the first Save makes a project
 Understanding    click a name to see where it is created and used (Ctrl+click jumps to where it is created)
                  'Live values' (next to Run) shows the values behind your code while the program runs; 'Value list' lists them
 """
@@ -611,7 +614,11 @@ class App:
         self.untitled_count = 0
         self.run_id = 0
         self.run_tab = None
-        self.project = None
+        self.project = None             # the folder shown on the left
+        self.project_info = None        # its project definition (a .plainproject file), if it has one
+        self.build_queue = queue.Queue()
+        self.building = False
+        self.build_log = []
         self.reporting = False
         self.folder_nodes = {}
         self.watch_var = tk.BooleanVar(value=False)    # the list of values on the right
@@ -650,8 +657,13 @@ class App:
         file_menu = tk.Menu(menu, tearoff=False)
         file_menu.add_command(label="New tab", accelerator="Ctrl+N", command=self.new_tab)
         file_menu.add_command(label="Open...", accelerator="Ctrl+O", command=self.open_dialog)
-        file_menu.add_command(label="Open folder (project)...", command=self.open_project_dialog)
-        file_menu.add_command(label="Close folder", command=self.close_project)
+        file_menu.add_separator()
+        file_menu.add_command(label="New project...", command=self.new_project_dialog)
+        file_menu.add_command(label="Open project...", command=self.open_project_file_dialog)
+        self.recent_menu = tk.Menu(file_menu, tearoff=False, postcommand=self.fill_recent_menu)
+        file_menu.add_cascade(label="Open recent project", menu=self.recent_menu)
+        file_menu.add_command(label="Open folder...", command=self.open_project_dialog)
+        file_menu.add_command(label="Close project", command=self.close_project)
         file_menu.add_separator()
         file_menu.add_command(label="Save", accelerator="Ctrl+S", command=self.save)
         file_menu.add_command(label="Save as...", accelerator="Ctrl+Shift+S", command=self.save_as)
@@ -675,6 +687,14 @@ class App:
         run_menu.add_command(label="Stop", accelerator="Shift+F5", command=self.stop)
         menu.add_cascade(label="Run", menu=run_menu)
 
+        build_menu = tk.Menu(menu, tearoff=False)
+        build_menu.add_command(label="Build Python file", accelerator="F6", command=self.build_action)
+        build_menu.add_command(label="Release: make a program (exe)", accelerator="F7", command=self.release_action)
+        build_menu.add_separator()
+        build_menu.add_command(label="Show build folder", command=self.show_build_folder)
+        build_menu.add_command(label="Project settings...", command=self.project_settings)
+        menu.add_cascade(label="Build", menu=build_menu)
+
         view_menu = tk.Menu(menu, tearoff=False)
         view_menu.add_command(label="Bigger text", accelerator="Ctrl++", command=lambda: self.zoom(1))
         view_menu.add_command(label="Smaller text", accelerator="Ctrl+-", command=lambda: self.zoom(-1))
@@ -695,6 +715,10 @@ class App:
         self.run_button.pack(side="left")
         self.stop_button = ttk.Button(bar, text="■  Stop", command=self.stop, state="disabled")
         self.stop_button.pack(side="left", padx=(6, 0))
+        self.build_button = ttk.Button(bar, text="Build (F6)", command=self.build_action)
+        self.build_button.pack(side="left", padx=(18, 0))
+        self.release_button = ttk.Button(bar, text="Release (F7)", command=self.release_action)
+        self.release_button.pack(side="left", padx=(6, 0))
         ttk.Checkbutton(bar, text="Live values", variable=self.live_var).pack(side="left", padx=(18, 0))
         ttk.Checkbutton(bar, text="Value list", variable=self.watch_var,
                         command=self.toggle_watch).pack(side="left", padx=(10, 0))
@@ -785,6 +809,8 @@ class App:
         r = self.root
         r.bind("<F5>", lambda e: self.run())
         r.bind("<Shift-F5>", lambda e: self.stop())
+        r.bind("<F6>", lambda e: self.build_action())
+        r.bind("<F7>", lambda e: self.release_action())
         r.bind("<F1>", lambda e: self.show_help())
         r.bind("<Control-n>", lambda e: self.new_tab())
         r.bind("<Control-Tab>", lambda e: self.next_tab())
@@ -894,6 +920,9 @@ class App:
         return None
 
     def open_path(self, path):
+        if path.endswith(PROJECTS.EXT):
+            self.open_project_file(path)
+            return None
         existing = self.find_tab(path)
         if existing:
             self.notebook.select(existing)
@@ -928,6 +957,9 @@ class App:
 
     def save_as(self, tab=None):
         tab = tab or self.current()
+        if tab.path is None and self.project is None:
+            # A first save always creates a project, so the program has a home for its builds.
+            return self.new_project_dialog(tab)
         options = {"defaultextension": ".plain", "filetypes": [("Plain programs", "*.plain"), ("All files", "*.*")]}
         if self.project:
             options["initialdir"] = self.project
@@ -972,7 +1004,11 @@ class App:
 
     def open_project(self, folder):
         self.project = os.path.abspath(folder)
-        self.project_label.config(text=os.path.basename(self.project) or self.project)
+        self.project_info = PROJECTS.Project.find(self.project)
+        if self.project_info:
+            PROJECTS.add_recent(DATA_DIR, self.project_info.path)
+        self.project_label.config(text=self.project_info.name if self.project_info
+                                  else os.path.basename(self.project) or self.project)
         if str(self.sidebar) not in self.hpane.panes():
             self.hpane.insert(0, self.sidebar, weight=0)
             self.root.after(50, lambda: self.hpane.sashpos(0, 210))
@@ -980,6 +1016,7 @@ class App:
 
     def close_project(self):
         self.project = None
+        self.project_info = None
         if str(self.sidebar) in self.hpane.panes():
             self.hpane.forget(self.sidebar)
 
@@ -998,6 +1035,8 @@ class App:
             for f in sorted(files):
                 if f.endswith(".plain"):
                     self.tree.insert(parent, "end", text=f, values=(os.path.join(dirpath, f), "file"))
+                elif f.endswith(PROJECTS.EXT):
+                    self.tree.insert(parent, "end", text=f, values=(os.path.join(dirpath, f), "project"))
 
     def on_tree_open(self, _event):
         selection = self.tree.selection()
@@ -1006,6 +1045,8 @@ class App:
         path, kind = self.tree.item(selection[0], "values")
         if kind == "file":
             self.open_path(path)
+        elif kind == "project":
+            self.project_settings()
 
     def new_project_file(self):
         if not self.project:
@@ -1033,6 +1074,291 @@ class App:
             return
         self.refresh_tree()
         self.open_path(target)
+
+    # ---- project files, recent projects ------------------------------------------
+
+    def open_project_file_dialog(self):
+        path = filedialog.askopenfilename(title="Open a Plain project",
+                                          filetypes=[("Plain projects", "*" + PROJECTS.EXT), ("All files", "*.*")])
+        if path:
+            self.open_project_file(path)
+
+    def open_project_file(self, path):
+        try:
+            info = PROJECTS.Project.load(path)
+        except ValueError as exc:
+            messagebox.showerror(TITLE, str(exc))
+            return False
+        self.open_project(info.folder)
+        if self.project_info is None:       # the file has another name than the one the folder holds
+            self.project_info = info
+            PROJECTS.add_recent(DATA_DIR, path)
+        if os.path.isfile(self.project_info.main_path):
+            self.open_path(self.project_info.main_path)
+        return True
+
+    def fill_recent_menu(self):
+        self.recent_menu.delete(0, "end")
+        paths = PROJECTS.recent_projects(DATA_DIR)
+        for path in paths:
+            label = f"{os.path.splitext(os.path.basename(path))[0]}    ({os.path.dirname(path)})"
+            self.recent_menu.add_command(label=label, command=lambda p=path: self.open_project_file(p))
+        if paths:
+            self.recent_menu.add_separator()
+            self.recent_menu.add_command(label="Clear this list", command=lambda: PROJECTS.clear_recent(DATA_DIR))
+        else:
+            self.recent_menu.add_command(label="(no projects yet)", state="disabled")
+
+    def new_project_dialog(self, tab=None):
+        """Make a project in a folder you choose. With a tab: the program in it becomes the main program."""
+        folder = filedialog.askdirectory(title="Choose the folder for your project (make a new one if you like)",
+                                         mustexist=False)
+        if not folder:
+            return False
+        folder = os.path.abspath(folder)
+        os.makedirs(folder, exist_ok=True)
+        info = PROJECTS.Project.find(folder)
+        if info is None:
+            name = os.path.basename(folder) or "program"
+            main = "main.plain"
+            if tab is not None and tab.path and os.path.dirname(os.path.abspath(tab.path)) == folder:
+                main = os.path.basename(tab.path)
+            info = PROJECTS.Project(folder, name, main)
+            try:
+                info.save()
+            except OSError as exc:
+                messagebox.showerror(TITLE, f"I cannot create the project: {exc.strerror}")
+                return False
+        if tab is not None and tab.path is None:
+            target = info.main_path
+            if os.path.exists(target):
+                n = 2
+                while os.path.exists(os.path.join(folder, f"program{n}.plain")):
+                    n += 1
+                target = os.path.join(folder, f"program{n}.plain")
+            if not self.write(tab, target):
+                return False
+        elif tab is None and not os.path.exists(info.main_path):
+            try:
+                with open(info.main_path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(NEW_PROGRAM)
+            except OSError as exc:
+                messagebox.showerror(TITLE, f"I cannot create the program: {exc.strerror}")
+                return False
+        self.open_project(folder)
+        if tab is None and os.path.isfile(info.main_path):
+            self.open_path(info.main_path)
+        self.write_output(f"Project '{info.name}' is ready in {folder}\n", "info")
+        return True
+
+    def project_settings(self):
+        info = self.project_info
+        if info is None:
+            if not self.make_project_here():
+                return
+            info = self.project_info
+        win = tk.Toplevel(self.root)
+        win.title(f"Project settings - {info.name}")
+        win.transient(self.root)
+        win.resizable(False, False)
+        frame = ttk.Frame(win, padding=14)
+        frame.pack()
+        name = tk.StringVar(value=info.name)
+        main = tk.StringVar(value=info.main)
+        output = tk.StringVar(value=info.output)
+        ttk.Label(frame, text="Name").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Entry(frame, textvariable=name, width=34).grid(row=0, column=1, pady=4, padx=(10, 0))
+        ttk.Label(frame, text="Main program").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Combobox(frame, textvariable=main, values=info.plain_files() or [info.main], width=32,
+                     state="readonly").grid(row=1, column=1, pady=4, padx=(10, 0))
+        ttk.Label(frame, text="Program file name").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Entry(frame, textvariable=output, width=34).grid(row=2, column=1, pady=4, padx=(10, 0))
+        ttk.Label(frame, text="The main program is what Build and Release turn into a Python file and a program.",
+                  foreground=self.theme["out_info"], wraplength=380).grid(row=3, column=0, columnspan=2, pady=(8, 0))
+
+        def apply():
+            old = info.path
+            info.name = name.get().strip() or info.name
+            info.main = main.get() or info.main
+            info.output = PROJECTS.slug(output.get() or info.name)
+            try:
+                info.save()
+                if info.path != old and os.path.exists(old):
+                    os.remove(old)
+            except OSError as exc:
+                messagebox.showerror(TITLE, f"I cannot save the project: {exc.strerror}", parent=win)
+                return
+            PROJECTS.add_recent(DATA_DIR, info.path)
+            self.project_label.config(text=info.name)
+            self.refresh_tree()
+            win.destroy()
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=0, columnspan=2, pady=(12, 0), sticky="e")
+        ttk.Button(buttons, text="Cancel", command=win.destroy).pack(side="right")
+        ttk.Button(buttons, text="Save", command=apply).pack(side="right", padx=(0, 8))
+
+    def make_project_here(self):
+        """Builds need a project. Turn the open folder into one, or ask for a folder."""
+        tab = self.current()
+        if self.project is None and tab is not None and tab.path:
+            self.open_project(os.path.dirname(os.path.abspath(tab.path)))      # the folder of the program
+            if self.project_info:
+                return True
+        if self.project is None:
+            return self.new_project_dialog(tab if tab is not None and tab.path is None else None) \
+                and self.project_info is not None
+        if not messagebox.askyesno(TITLE, "This folder is not a project yet.\n\nMake it a project, so that the "
+                                          "program can be built?"):
+            return False
+        main = "main.plain"
+        if tab is not None and tab.path and os.path.dirname(os.path.abspath(tab.path)) == self.project:
+            main = os.path.basename(tab.path)
+        elif not os.path.exists(os.path.join(self.project, main)) and self.project_files():
+            main = self.project_files()[0]
+        info = PROJECTS.Project(self.project, os.path.basename(self.project), main)
+        try:
+            info.save()
+        except OSError as exc:
+            messagebox.showerror(TITLE, f"I cannot create the project: {exc.strerror}")
+            return False
+        self.open_project(self.project)
+        return True
+
+    def project_files(self):
+        return PROJECTS.Project(self.project).plain_files() if self.project else []
+
+    # ---- building ------------------------------------------------------------
+
+    def save_project_tabs(self):
+        for tab in self.tabs():
+            if tab.dirty and tab.path and not self.save(tab):
+                return False
+        return True
+
+    def need_project(self):
+        if self.building:
+            return None
+        if self.project_info is None and not self.make_project_here():
+            return None
+        info = self.project_info
+        if info is None:
+            return None
+        tab = self.current()
+        if tab is not None and tab.path is None and not info.plain_files():
+            self.save(tab)
+        if not self.save_project_tabs():
+            return None
+        if not os.path.isfile(info.main_path):
+            messagebox.showerror(TITLE, f"The main program '{info.main}' does not exist.\n\n"
+                                        "Choose another one in Build > Project settings.")
+            return None
+        return info
+
+    def build_action(self, quiet=False):
+        """Translate the main program to a Python file. Returns the modules it uses, or None on a mistake."""
+        info = self.need_project()
+        if info is None:
+            return None
+        self.clear_output()
+        for t in self.tabs():
+            t.clear_marks()
+        try:
+            path, imports = PROJECTS.build_python(info)
+        except PlainError as err:
+            with open(info.main_path, encoding="utf-8") as f:
+                source = f.read()
+            self.write_output(format_error(err, source, info.main) + "\n", "err")
+            tab = self.find_tab(info.main_path)
+            if tab:
+                tab.mark_line(err.line)
+            return None
+        except OSError as exc:
+            self.write_output(f"I cannot build the program: {exc.strerror}\n", "err")
+            return None
+        relative = os.path.relpath(path, info.folder)
+        self.write_output(f"Built {relative}\nRun it anywhere with Python 3.10 or newer:  python {relative}\n", "info")
+        return imports
+
+    def release_action(self):
+        imports = self.build_action()
+        if imports is None:
+            return
+        info = self.project_info
+        self.write_output("\nMaking the program (an exe needs Python and PyInstaller on this computer)...\n", "info")
+        self.root.config(cursor="watch")
+        self.root.update_idletasks()
+        try:
+            python, has_pyinstaller = PROJECTS.find_python()
+        finally:
+            self.root.config(cursor="")
+        if python is None:
+            self.write_output("I could not find Python 3.10 or newer on this computer.\n"
+                              "Install it from python.org, then try Release again. "
+                              "The Python file from Build works without this step.\n", "err")
+            return
+        steps = []
+        if not has_pyinstaller:
+            if not messagebox.askyesno(TITLE, "To make a program I need PyInstaller.\n\n"
+                                              "Install it now? (pip install pyinstaller)"):
+                self.write_output("Stopped: PyInstaller is not installed.\n", "err")
+                return
+            steps.append(python + ["-m", "pip", "install", "pyinstaller"])
+        steps.append(python + PROJECTS.pyinstaller_arguments(info, "window" in imports))
+        self.set_building(True)
+        self.build_log = []
+        self.write_output("Working... this takes a minute.\n", "info")
+        threading.Thread(target=self.run_build_steps, args=(steps,), daemon=True).start()
+
+    def run_build_steps(self, steps):
+        """Runs in a thread: the output is passed on through build_queue."""
+        for command in steps:
+            try:
+                proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        creationflags=NO_WINDOW)
+                for raw in proc.stdout:
+                    self.build_queue.put(("line", raw.decode("utf-8", "replace").rstrip()))
+                code = proc.wait()
+            except OSError as exc:
+                self.build_queue.put(("line", str(exc)))
+                code = 1
+            if code != 0:
+                self.build_queue.put(("done", code))
+                return
+        self.build_queue.put(("done", 0))
+
+    def set_building(self, building):
+        self.building = building
+        state = "disabled" if building else "normal"
+        for button in (self.build_button, self.release_button):
+            button.config(state=state)
+
+    def handle_build_events(self):
+        try:
+            while True:
+                kind, data = self.build_queue.get_nowait()
+                if kind == "line":
+                    self.build_log.append(data)
+                    continue
+                self.set_building(False)
+                info = self.project_info
+                if data == 0 and info and os.path.isfile(info.program_path):
+                    self.write_output(f"Done: {os.path.relpath(info.program_path, info.folder)}\n"
+                                      "You can give this program to anyone; it needs no Python.\n", "info")
+                else:
+                    self.write_output("The program could not be made. The last lines of the report:\n", "err")
+                    self.write_output("\n".join(self.build_log[-20:]) + "\n", "err")
+        except queue.Empty:
+            pass
+
+    def show_build_folder(self):
+        if self.project_info is None:
+            return
+        info = self.project_info
+        for folder in (info.dist_dir, info.build_dir, info.folder):
+            if os.path.isdir(folder):
+                open_folder(folder)
+                return
 
     # ---- running -------------------------------------------------------------
 
@@ -1188,6 +1514,7 @@ class App:
         self.runner.send(line)
 
     def poll(self):
+        self.handle_build_events()
         try:
             while True:
                 proc, kind, data = self.runner.events.get_nowait()
