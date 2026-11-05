@@ -7,7 +7,7 @@ end
 action twice takes(n) do
     return -n * 2
 end
-do greet()
+run greet()
 say add3(1, 2, 3)
 say twice(-4)
 say add3(twice(1), 0, abs of -5)

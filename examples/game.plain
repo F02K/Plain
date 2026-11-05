@@ -46,17 +46,17 @@ add Enemy(x: 6, y: 0, damage: 20, alive: true) to enemies
 add Enemy(x: 9, y: 0, damage: 10, alive: true) to enemies
 
 while health of hero > 0 do
-    do moveRight(hero)
+    run moveRight(hero)
 
     for each enemy in enemies do
         if isTouching(hero, enemy) then
-            do attack(hero, enemy)
+            run attack(hero, enemy)
         end
     end
 
     if x of hero > 10 then
         say "Level complete! Final score: " + score of hero
-        do healPlayer(hero, 30)
+        run healPlayer(hero, 30)
         stop
     end
 end

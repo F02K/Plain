@@ -86,12 +86,12 @@ action heal takes(player, amount) do
     set health of player to health of player + amount
 end
 
-do heal(hero, 20)
+run heal(hero, 20)
 ```
 
-- Without values write just `action greet do`, and run it with `do greet()`.
-- `do` always means: run the code of an action. A line that runs an action starts with `do`
-  (`do heal(hero, 20)`). Inside an expression an action that returns a value needs no `do`:
+- Without values write just `action greet do`, and run it with `run greet()`.
+- `run` always means: run the code of an action. A line that runs an action starts with `run`
+  (`run heal(hero, 20)`). Inside an expression an action that returns a value needs no `run`:
   `let total be add(1, 2)`.
 - Parameters have no type annotations. The compiler works out the types from the
   calls and compiles one version of the action for each combination of types.
@@ -230,7 +230,7 @@ Without `try`, a runtime error stops the program with the line number and a reas
 ## Reserved words
 
 `let be set to say input if then else end repeat times while do for each in stop skip
-action return define as list of at add remove from sort try catch import and or not mod true
+action run return define as list of at add remove from sort try catch import and or not mod true
 false nothing` (`note:` starts a comment).
 
 ## Differences from the first draft of the specification

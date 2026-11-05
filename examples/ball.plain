@@ -55,7 +55,7 @@ while window is open do
         set paddle to move_paddle(paddle, 6)
     end
 
-    do bounce(ball)
+    run bounce(ball)
 
     if hits_paddle(ball, paddle) then
         set speed_y of ball to -abs of speed_y of ball
@@ -73,6 +73,6 @@ while window is open do
         end
     end
 
-    do draw_scene(ball, paddle, score, lives, sky)
+    run draw_scene(ball, paddle, score, lives, sky)
     show window
 end

@@ -124,7 +124,7 @@ class Parser:
                 "if": self.parse_if, "repeat": self.parse_repeat, "while": self.parse_while,
                 "for": self.parse_for, "stop": self.parse_stop, "skip": self.parse_skip,
                 "return": self.parse_return, "add": self.parse_add, "remove": self.parse_remove,
-                "try": self.parse_try, "sort": self.parse_sort, "do": self.parse_do,
+                "try": self.parse_try, "sort": self.parse_sort, "run": self.parse_run,
             }.get(tok.value)
             if tok.value == "import":
                 self.error(tok, "'import' must be at the top of the program, before everything else.",
@@ -139,6 +139,8 @@ class Parser:
             hint = None
             if tok.value == "end":
                 hint = "There is an 'end' without a matching if/while/repeat/for/action/define/try."
+            if tok.value == "do":
+                hint = "To run an action write: run name(values). 'do' only ends the head of a while, for each or action."
             self.error(tok, f"I did not expect {describe(tok)} here.", hint)
         if tok.kind == "NAME":
             sentence = self.parse_module_command()
@@ -240,20 +242,20 @@ class Parser:
                        f"To change a variable write: set {start.value} to ...")
         expr = self.parse_expr()
         if isinstance(expr, N.Call) and start.kind == "NAME" and start.value == expr.name:
-            self.error(start, f"To run the action '{start.value}' start the line with 'do'.",
-                       f"Write: do {start.value}(...)")
+            self.error(start, f"To run the action '{start.value}' start the line with 'run'.",
+                       f"Write: run {start.value}(...)")
         if not isinstance(expr, N.Call):
             self.error(start, "This line does nothing on its own.",
                        "Use 'say' to show a value, 'let' to create a variable or 'set' to change one.")
         self.end_statement()
         return N.ExprStmt(expr, line=start.line, col=start.col)
 
-    def parse_do(self):
-        """do name(values): runs an action. 'do' always means: run the code of an action."""
+    def parse_run(self):
+        """run name(values): runs an action. 'run' always means: run the code of an action."""
         start = self.advance()
-        hint = "Write: do name(value1, value2)"
+        hint = "Write: run name(value1, value2)"
         if self.cur.kind != "NAME" or not self.peek().is_sym("("):
-            self.error(self.cur, f"I expected the name of an action after 'do' but found {describe(self.cur)}.", hint)
+            self.error(self.cur, f"I expected the name of an action after 'run' but found {describe(self.cur)}.", hint)
         call = self.parse_primary()
         self.end_statement()
         return N.ExprStmt(call, line=start.line, col=start.col)

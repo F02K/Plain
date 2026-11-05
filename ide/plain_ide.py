@@ -127,8 +127,8 @@ Output / input   say "Hello"                let name be input "Name?"
 Decisions        if x > 3 then ... else if ... then ... else ... end
 Loops            repeat 3 times ... end     while x > 0 do ... end
                  for each item in items do ... end      stop / skip
-Actions          action add takes(a, b) do  return a + b  end      do add(1, 2)   or   let n be add(1, 2)
-                 action greet do ... end                           do greet()
+Actions          action add takes(a, b) do  return a + b  end      run add(1, 2)   or   let n be add(1, 2)
+                 action greet do ... end                           run greet()
 Things           define Player as  x as number  end
                  let p be Player(x: 0)      say x of p
 Lists            let l be list of number    add 5 to l     remove 5 from l
