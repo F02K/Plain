@@ -2,4 +2,4 @@ let secret be 5
 action peek do
     say secret
 end
-do peek()
+run peek()

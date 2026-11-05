@@ -1,2 +1,2 @@
-start the line with 'do'
-Write: do greet(...)
+start the line with 'run'
+Write: run greet(...)

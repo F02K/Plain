@@ -7,7 +7,7 @@ KEYWORDS = {
     "let", "be", "set", "to", "say", "input",
     "if", "then", "else", "end",
     "repeat", "times", "while", "do", "for", "each", "in",
-    "stop", "skip", "action", "return",
+    "stop", "skip", "action", "run", "return",
     "define", "as", "list", "of", "at", "add", "remove", "from", "sort",
     "try", "catch", "import",
     "and", "or", "not", "mod",

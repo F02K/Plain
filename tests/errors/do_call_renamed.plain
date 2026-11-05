@@ -1,0 +1,4 @@
+action greet do
+    say "hi"
+end
+do greet()

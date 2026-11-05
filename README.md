@@ -27,7 +27,7 @@ end
 let name be input "What is your name?"
 let hero be Player(health: 80, score: 0)
 
-do heal(hero, 20)
+run heal(hero, 20)
 say name + " has " + health of hero + " health."
 ```
 

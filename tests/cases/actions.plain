@@ -23,6 +23,6 @@ end
 say fact(10)
 say double(21)
 say double("ab")
-do greet("Max")
+run greet("Max")
 say fib(20)
 say double(fact(3)) + 1
