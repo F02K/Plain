@@ -1,0 +1,49 @@
+note: A bank account. Mistakes such as taking out too much money stop the action with fail,
+note: and the program decides what to do about it with try and catch.
+define Account as
+    owner as text
+    balance as number
+end
+
+action deposit takes(account, amount) do
+    if amount <= 0 then
+        fail "You can only pay in a positive amount."
+    end
+    set balance of account to balance of account + amount
+end
+
+action withdraw takes(account, amount) do
+    if amount <= 0 then
+        fail "You can only take out a positive amount."
+    end
+    if amount > balance of account then
+        fail "Not enough money: " + owner of account + " only has " + balance of account + "."
+    end
+    set balance of account to balance of account - amount
+end
+
+action show takes(account) do
+    say owner of account + ": " + balance of account
+end
+
+let ada be Account(owner: "Ada", balance: 100)
+run show(ada)
+
+run deposit(ada, 50)
+run show(ada)
+
+let attempts be list of number
+add 30 to attempts
+add -5 to attempts
+add 500 to attempts
+add 120 to attempts
+
+for each amount in attempts do
+    try
+        run withdraw(ada, amount)
+        say "Took out " + amount
+    catch error then
+        say "Problem: " + error
+    end
+end
+run show(ada)

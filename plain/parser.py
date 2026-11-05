@@ -661,6 +661,8 @@ class Parser:
             if self.cur.is_sym("-"):
                 minus = self.advance()
                 obj = N.Unary("-", self.parse_access(), line=minus.line, col=minus.col)
+            elif self.cur.is_kw("input"):       # lower of trim of input "Your answer?"
+                obj = self.parse_unary()
             else:
                 obj = self.parse_access()
             return N.Field(tok.value, obj, line=tok.line, col=tok.col)

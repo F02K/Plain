@@ -31,8 +31,10 @@ def read(path):
         return f.read()
 
 
-def run_case(path, tmp, env=None):
+def run_case(path, tmp, env=None, data=None):
+    """data: the folder with NAME.in and NAME.out when they are not next to the program (the examples)."""
     name = os.path.splitext(os.path.basename(path))[0]
+    data_base = os.path.join(data, name) if data else path[:-6]
     source = read(path)
     try:
         python_text = compile_to_python(source, base_dir=os.path.dirname(path))
@@ -41,15 +43,30 @@ def run_case(path, tmp, env=None):
     py_path = os.path.join(tmp, name + ".py")
     with open(py_path, "w", encoding="utf-8") as f:
         f.write(python_text)
-    stdin_path = path[:-6] + ".in"
+    stdin_path = data_base + ".in"
     stdin = read(stdin_path) if os.path.exists(stdin_path) else ""
     work = os.path.join(tmp, name + "_work")            # the program runs here, so files it writes stay here
     os.makedirs(work, exist_ok=True)
     result = subprocess.run([sys.executable, py_path], input=stdin, capture_output=True, text=True,
                             encoding="utf-8", timeout=20, env=env, cwd=work)
-    expected = read(path[:-6] + ".out")
+    expected = read(data_base + ".out")
     if result.stdout != expected:
         return False, f"expected:{NL}{expected}{NL}got:{NL}{result.stdout}{result.stderr}"
+    return True, ""
+
+
+def example_case(path, tmp):
+    """Every example must compile. The ones with a saved output (tests/examples/NAME.out, input in NAME.in)
+    are run and compared; the others (windows, random numbers) are only compiled."""
+    data = os.path.join(ROOT, "tests", "examples")
+    name = os.path.splitext(os.path.basename(path))[0]
+    if os.path.exists(os.path.join(data, name + ".out")):
+        return run_case(path, tmp, data=data)
+    source = read(path)
+    try:
+        compile_to_python(source, base_dir=os.path.dirname(path))
+    except PlainError as err:
+        return False, format_error(err, source, os.path.basename(path))
     return True, ""
 
 
@@ -150,6 +167,14 @@ def main():
                 continue            # a library that the test programs import (see tests/cases/lib_*.plain)
             total += 1
             ok, detail = run_case(path, tmp)
+            print(("PASS " if ok else "FAIL ") + os.path.relpath(path, ROOT))
+            if not ok:
+                failures += 1
+                print(detail)
+    with tempfile.TemporaryDirectory() as tmp:
+        for path in sorted(glob.glob(os.path.join(ROOT, "examples", "*.plain"))):
+            total += 1
+            ok, detail = example_case(path, tmp)
             print(("PASS " if ok else "FAIL ") + os.path.relpath(path, ROOT))
             if not ok:
                 failures += 1

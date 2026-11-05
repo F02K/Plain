@@ -1,0 +1,6 @@
+note: input can be used right after a helper with of: lower of trim of input "..."
+let answer be lower of trim of input "Your answer?"
+say "[" + answer + "]"
+let size be length of input "Word?"
+say size
+say (number of input "Number?") + 1

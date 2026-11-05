@@ -116,6 +116,10 @@ end
 
 More: [`examples/`](examples/) and the full [language reference](docs/language.md).
 
+The `examples/` folder has programs to read, run and change: `quiz`, `hangman`, `rock_paper_scissors`, `adventure`
+(games that ask you things), `calculator`, `temperature`, `bank` (actions and mistakes with `fail`), `primes`, `sorting`
+(loops and lists), `words`, `multiplication`, `constants` and more. They are all in the IDE's *Examples* menu.
+
 ## Documentation
 
 | Document | Content |
@@ -138,7 +142,7 @@ Windows and drawing work as a module (see [`examples/ball.plain`](examples/ball.
 plain/       the compiler (lexer, parser, checker, Python writer, CLI)
 modules/     modules such as window (a .plain file with the sentences, a .py file with the code)
 examples/    example programs
-tests/       test runner, run-cases and error-cases
+tests/       test runner, run-cases, error-cases and the saved output of the examples
 docs/        documentation
 ```
 

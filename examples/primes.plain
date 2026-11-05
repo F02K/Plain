@@ -1,0 +1,47 @@
+note: Prime numbers, found in two ways: by trying divisors, and with the sieve of Eratosthenes.
+action is_prime takes(n) do
+    if n < 2 then
+        return false
+    end
+    for divisor from 2 to sqrt of n do
+        if n mod divisor = 0 then
+            return false
+        end
+    end
+    return true
+end
+
+let limit be 50 fixed
+
+say "Primes up to " + limit + " (trying divisors):"
+let line be ""
+let found be 0
+for n from 2 to limit do
+    if is_prime(n) then
+        set line to line + n + " "
+        set found to found + 1
+    end
+end
+say trim of line
+say "That is " + found + " primes."
+say ""
+
+say "The same with the sieve:"
+let crossed_out be list of boolean
+for n from 0 to limit do
+    add false to crossed_out
+end
+for n from 2 to limit do
+    if not (crossed_out at n) then
+        for multiple from n * 2 to limit step n do
+            set crossed_out at multiple to true
+        end
+    end
+end
+set line to ""
+for n from 2 to limit do
+    if not (crossed_out at n) then
+        set line to line + n + " "
+    end
+end
+say trim of line

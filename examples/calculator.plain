@@ -1,0 +1,35 @@
+note: A calculator that asks for two numbers and an operation. Mistakes are caught instead of crashing.
+action calculate takes(a, operation, b) do
+    if operation = "+" then
+        return a + b
+    else if operation = "-" then
+        return a - b
+    else if operation = "*" then
+        return a * b
+    else if operation = "/" then
+        return a / b
+    else if operation = "mod" then
+        return a mod b
+    end
+    fail "I do not know the operation '" + operation + "'."
+end
+
+say "Operations: + - * / mod   (type nothing to stop)"
+let running be true
+while running do
+    let first be input "First number?"
+    if first = "" then
+        set running to false
+        skip
+    end
+    let operation be input "Operation?"
+    let second be input "Second number?"
+    try
+        let result be calculate(number of first, trim of operation, number of second)
+        say first + " " + operation + " " + second + " = " + result
+    catch error then
+        say "Problem: " + error
+    end
+    say ""
+end
+say "Goodbye!"
