@@ -181,6 +181,117 @@ class IdeTest(unittest.TestCase):
         self.assertNotIn("2.4", helpers)                       # a variable that is called fixed is a name
         self.assertIn("3.0", keywords)                         # 'fail'
 
+    # ---- find and replace ------------------------------------------------------------
+
+    def test_find_marks_all_matches_and_steps_through_them(self):
+        doc = self.app.documents.current()
+        doc.set_text("say 1\nsay 2\nSay 3\nlet x be 4\n")
+        self.app.find()
+        bar = doc.findbar
+        self.assertTrue(bar.visible)
+        bar.find_var.set("say")
+        bar.update()
+        self.assertEqual(len(bar.matches), 3)                      # not case sensitive by default
+        self.assertEqual(len(doc.text.tag_ranges("find_match")), 6)
+        bar.case_var.set(True)
+        bar.update()
+        self.assertEqual(len(bar.matches), 2)                      # "Say" no longer counts
+        bar.case_var.set(False)
+        bar.update()
+        first = bar.current
+        bar.next()
+        self.assertNotEqual(bar.current, first)
+        bar.next()
+        bar.next()
+        self.assertEqual(bar.current, first)                       # three matches: it goes round
+        bar.previous()
+        self.assertNotEqual(bar.current, first)
+        self.assertIn("of", bar.count.cget("text"))
+        bar.hide()
+        self.assertFalse(bar.visible)
+        self.assertEqual(doc.text.tag_ranges("find_match"), ())
+
+    def test_find_without_a_match_and_a_selected_word(self):
+        doc = self.app.documents.current()
+        doc.set_text("alpha beta\n")
+        doc.text.tag_add("sel", "1.6", "1.10")
+        self.app.find()
+        self.assertEqual(doc.findbar.find_var.get(), "beta")        # starts with the selected word
+        doc.findbar.find_var.set("zzz")
+        doc.findbar.update()
+        self.assertEqual(doc.findbar.count.cget("text"), "No results")
+
+    def test_replace_one_and_replace_all(self):
+        doc = self.app.documents.current()
+        doc.set_text("cat dog cat\ncat\n")
+        self.app.find(replace=True)
+        bar = doc.findbar
+        bar.find_var.set("cat")
+        bar.replace_var.set("bird")
+        bar.update()
+        bar.replace_one()
+        self.assertEqual(doc.source().count("bird"), 1)
+        bar.replace_all()
+        self.assertEqual(doc.source(), "bird dog bird\nbird\n")
+        self.app.undo()                                              # one undo takes the replace all back
+        self.assertEqual(doc.source().count("bird"), 1)
+
+    def test_go_to_line(self):
+        doc = self.app.documents.current()
+        doc.set_text("a\nb\nc\nd\n")
+        self.app.go_to_line(3)
+        self.assertEqual(doc.text.index("insert"), "3.0")
+
+    # ---- mistakes while typing -----------------------------------------------------------
+
+    def test_a_mistake_is_underlined_and_shown_in_the_status_bar(self):
+        doc = self.app.documents.current()
+        doc.set_text('say "fine"\nsay oops\nsay "also fine"\n')
+        doc.text.mark_set("insert", "1.0")
+        doc.run_check()
+        self.assertEqual(doc.problem[0], 2)
+        self.assertTrue(doc.text.tag_ranges("problem"))
+        self.assertIn("Problem, line 2", self.app.status.problem.cget("text"))
+        self.assertIn("oops", self.app.status.problem.cget("text"))
+        doc.set_text('say "fine"\nsay 1\n')
+        doc.run_check()
+        self.assertIsNone(doc.problem)
+        self.assertEqual(doc.text.tag_ranges("problem"), ())
+        self.assertEqual(self.app.status.problem.cget("text"), "")
+
+    def test_the_line_you_are_typing_in_is_left_alone(self):
+        doc = self.app.documents.current()
+        doc.set_text('say "fine"\nsay oops\n')
+        doc.text.mark_set("insert", "2.4")
+        doc.run_check(editing=True)
+        self.assertIsNone(doc.problem)                               # still writing line 2
+        doc.text.mark_set("insert", "1.0")
+        doc.run_check(editing=False)
+        self.assertEqual(doc.problem[0], 2)                          # now it counts
+
+    def test_a_mistake_in_an_imported_file_is_not_underlined_here(self):
+        write(self.path("tools.plain"), 'action twice takes(n) do\n    return n + "a" - 1\nend\n')
+        self.open_project()
+        doc = self.app.documents.open_path(self.path("main.plain"))
+        doc.set_text('import tools\nsay twice(2)\n')
+        doc.run_check()
+        self.assertIsNone(doc.problem)
+
+    def test_other_files_are_not_checked(self):
+        self.open_project()
+        doc = self.app.documents.open_path(self.path("notes.txt"))
+        doc.set_text("this is not a program\n")
+        doc.run_check()
+        self.assertIsNone(doc.problem)
+
+    def test_clicking_the_problem_goes_to_the_line(self):
+        doc = self.app.documents.current()
+        doc.set_text('say "a"\nsay "b"\nsay oops\n')
+        doc.text.mark_set("insert", "1.0")
+        doc.run_check()
+        self.app.status.on_problem_click(self.app.status.problem_line)
+        self.assertEqual(doc.text.index("insert"), "3.0")
+
     def test_a_text_file_opens_as_text(self):
         self.open_project()
         doc = self.app.documents.open_path(self.path("notes.txt"))

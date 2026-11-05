@@ -65,6 +65,7 @@ class Documents:
         doc.text.focus_set()
         self.refresh()
         doc.update_cursor()
+        doc.publish_problem()
 
     def next(self, step=1):
         if len(self.list) > 1:

@@ -33,6 +33,8 @@ Windows          open window "Title" with width 640 and height 480
                  key "left" is pressed      mouse x   mouse y   mouse is down
 Colors           red green blue yellow orange purple pink brown gray white black
                  let sky be Color(red: 20, green: 24, blue: 40)    use color sky
+Waiting, files   wait 2 seconds                  read_file("a.txt")    file_exists("a.txt")
+                 run write_file("a.txt", "text")   run append_file("a.txt", "more")
 Own files        import lib   (brings in the actions and types of lib.plain next to your program)
 Errors           try ... catch error then ... end      fail "message"   (your own error)
 Comments         note: this is a comment
@@ -40,6 +42,8 @@ Comments         note: this is a comment
 In the editor    F5 run, Shift+F5 stop, Ctrl+Space complete, Tab/Enter accept a suggestion
                  Ctrl+N new tab, Ctrl+W close tab, Ctrl+Tab next tab, Ctrl+O open, Ctrl+S save
                  Ctrl+P go to file, Ctrl+B show / hide the sidebar, Ctrl+Shift+E Explorer
+                 Ctrl+F find, Ctrl+H replace, F3 / Shift+F3 next / previous match, Ctrl+G go to line
+                 Mistakes are underlined while you type; the first one is shown at the bottom (click it)
                  'if', 'while', 'repeat', 'for', 'action', 'define' and 'try' fill in a whole block
 Projects         Build (F6) makes a Python file, Release (F7) makes a program (exe) from it
                  File > New project / Open project / Open recent project; the first Save makes a project

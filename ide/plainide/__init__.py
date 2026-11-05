@@ -16,5 +16,6 @@ Layout of this package (each file has one job):
     app, main                  puts everything together
 """
 
+from plain import __version__ as VERSION      # one version number for the language and the IDE
+
 TITLE = "Plain IDE"
-VERSION = "0.3"

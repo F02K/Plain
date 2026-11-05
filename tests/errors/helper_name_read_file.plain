@@ -1,0 +1,3 @@
+action read_file takes(p) do
+    return p
+end

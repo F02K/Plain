@@ -6,10 +6,11 @@ import subprocess
 import sys
 import tempfile
 
+from . import __version__
 from .errors import PlainError, format_error
 from .toolchain import compile_to_python
 
-VERSION = "0.2.0"
+VERSION = __version__
 
 
 def main(argv=None):

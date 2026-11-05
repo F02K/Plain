@@ -9,6 +9,9 @@ python ide/plain_ide.py game.plain a.plain       # open files
 python ide/plain_ide.py MyGame.plainproject      # open a project
 ```
 
+Installed with `pip install .` the editor starts with the command `plain-ide` (or `python -m plainide`). The
+**Examples** menu is only there when the IDE runs from the source folder or from the downloaded program.
+
 ## The window
 
 ```
@@ -78,6 +81,12 @@ output Ball_Game
 - **Click a name** (a variable, action, type or field) and the IDE marks where it is created (strong) and where it
   is used (light), and explains it in the line under the editor. Click a keyword to see what it does.
   Ctrl+click jumps to the place where the name is created.
+- **Mistakes are underlined while you type** (a red line under the faulty line) and the first one is shown in the status bar
+  at the bottom: `Problem, line 3: I don't know a variable called 'totl'.` Click it to go there. The line you are still
+  typing in is left alone until you move to another line. Mistakes inside an imported file are shown when you run.
+- **Find and replace** (Ctrl+F, Ctrl+H): every match is marked and the current one stands out; Enter goes to the next,
+  Shift+Enter to the previous, `Aa` switches case sensitivity on, *Replace all* is one step for Undo. F3 / Shift+F3 go on
+  searching with the bar closed. **Go to line** is Ctrl+G, and the **Edit** menu has Undo and Redo.
 - Other text files (`.txt`, ...) open as plain text, without Plain colors.
 - Bigger / smaller text with Ctrl and + / -.
 
@@ -111,6 +120,9 @@ output Ball_Game
 | Ctrl+Shift+E | Go to the Explorer |
 | F2 / Delete (in the Explorer) | Rename / Delete |
 | Ctrl+Space | Auto completion |
+| Ctrl+F / Ctrl+H / F3 / Shift+F3 | Find / Replace / next match / previous match |
+| Ctrl+G | Go to line |
+| Ctrl+Z / Ctrl+Y | Undo / Redo |
 | Ctrl + + / - | Bigger / smaller text |
 | F1 | Quick reference |
 
@@ -134,6 +146,7 @@ window opens next to the IDE; *Stop* or closing it ends the program.
 | File | Job |
 | --- | --- |
 | `app.py`, `main.py` | build the window and connect the parts; start-up |
+| `findbar.py` | find and replace inside one tab |
 | `explorer.py`, `activitybar.py` | the file tree (with new / rename / delete) and the view buttons |
 | `documents.py`, `tabstrip.py`, `editor.py`, `completer.py` | open files, the row of tabs, one editor tab, the suggestion list |
 | `output.py`, `values.py`, `statusbar.py`, `toolbar.py`, `menus.py`, `quickopen.py`, `dialogs.py` | the other parts of the window |

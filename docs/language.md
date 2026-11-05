@@ -2,7 +2,7 @@
 
 A complete description of Plain. New to the language? Start with [Getting started](getting-started.md).
 
-**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Text - Output and input - Built-in helpers - Modules and your own files - Errors - Reserved words
+**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Text - Waiting and files - Output and input - Built-in helpers - Modules and your own files - Errors - Reserved words
 
 ## Types
 
@@ -202,6 +202,29 @@ say "Score: " + text of 42                    note: 42 becomes text (a number is
   (catch it with `try`).
 - `split(text, "")` splits into single letters; `join` needs a list of text.
 
+## Waiting and files
+
+```
+say "Ready..."
+wait 2 seconds                         note: also: wait 1 second, wait 0.5 seconds, wait pause
+say "Go!"
+
+run write_file("scores.txt", "Ada: 10\nMax: 7\n")      note: makes or replaces the file
+run append_file("scores.txt", "Eve: 9\n")               note: adds at the end
+if file_exists("scores.txt") then
+    let lines be split(trim of read_file("scores.txt"), "\n")      note: a list of text, one item per line
+    for each line in lines do
+        say line
+    end
+end
+```
+
+- `wait` pauses the program for that many seconds (a number, not negative).
+- Files are text files (UTF-8). A path without a folder means "next to the program" - the IDE runs a program in its own
+  folder. A file that does not exist is the error `The file 'x' does not exist.` (catch it with `try`).
+- `write_file` and `append_file` are things you *do*, so they start with `run`, like an action.
+- The list of helpers is in [Built-in helpers](#built-in-helpers).
+
 ## Output and input
 
 ```
@@ -267,6 +290,9 @@ Helpers with more values use brackets:
 | `replace(text, old, new)` | every `old` replaced by `new` | `replace("a-b", "-", "+")` is `a+b` |
 | `split(text, separator)` | a list of text; the separator `""` gives the letters | `split("a,b", ",")` |
 | `join(list, separator)` | the items of a list of text as one text | `join(words, ", ")` |
+| `read_file(path)` | the whole text of a file | `read_file("scores.txt")` |
+| `file_exists(path)` | `true` if the file exists | `file_exists("scores.txt")` |
+| `run write_file(path, text)` / `run append_file(path, text)` | make or replace a file / add text at its end | `run write_file("a.txt", "Hi")` |
 
 These names cannot be used for your own actions or types. A thing may still have a field
 called `length` and so on: `length of box` reads the field when `box` is a thing.
@@ -363,5 +389,6 @@ false nothing` (`note:` starts a comment).
 `takes`, `step` and `fixed` are only special in the place where they belong, so they still work as names of your own.
 
 The built-in helpers (`length`, `upper`, `lower`, `round`, `abs`, `sqrt`, `trim`, `number`, `text`, `random`, `min`,
-`max`, `part`, `contains`, `index_of`, `starts_with`, `ends_with`, `replace`, `split`, `join`) cannot be used as names of
-your own actions or types.
+`max`, `part`, `contains`, `index_of`, `starts_with`, `ends_with`, `replace`, `split`, `join`, `read_file`, `write_file`,
+`append_file`, `file_exists`) cannot be used as names of your own actions or types. `wait` is only special at the start of
+a line, so it still works as a name of your own.

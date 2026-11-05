@@ -1,6 +1,6 @@
 [project]
 name = "plain-lang"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Plain: a beginner friendly programming language: Python, but simpler."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -9,8 +9,22 @@ readme = "README.md"
 [project.scripts]
 plain = "plain.cli:main"
 
+[project.gui-scripts]
+plain-ide = "plainide.main:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools]
-packages = ["plain", "modules", "modules.window"]
+packages = ["plain", "modules", "modules.window", "plainide"]
+
+[tool.setuptools.package-dir]
+"" = "."
+plainide = "ide/plainide"
+
+[tool.setuptools.dynamic]
+version = { attr = "plain.__version__" }
 
 [tool.setuptools.package-data]
 "modules.window" = ["window.plain", "window.py"]

@@ -1,0 +1,2 @@
+'say' cannot show a list of number directly.
+for each item in items do say item end

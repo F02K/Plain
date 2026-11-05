@@ -94,6 +94,11 @@ class Let(Node):
 
 
 @dataclass
+class Wait(Node):
+    seconds: Node               # wait 1 second
+
+
+@dataclass
 class Fail(Node):
     value: Node                 # fail "message": stop with an error that 'try' can catch
 

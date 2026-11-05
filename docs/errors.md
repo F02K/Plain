@@ -43,6 +43,8 @@ Hint: An action only knows its own parameters and variables. Pass other values i
 | `'x' is already a fixed value of the program.` / `The parameter 'x' has the name of a fixed value.` | A top-level fixed value is known everywhere, so no variable or parameter may have its name. |
 | `I don't know a variable called 'name'.` (in an action, for a fixed value) | Only fixed values made of plain numbers, text and `true`/`false` are known inside actions. Pass others in as a parameter. |
 | `'fail' needs a text as its message ...` | Write `fail "Something went wrong"`. |
+| `'say' cannot show a list ... directly.` | Say a list of text with `say join(items, ", ")`, or walk through any list: `for each item in items do say item end`. |
+| `The time to wait must be a number ...` | `wait` needs a number of seconds: `wait 2 seconds`. |
 
 When an error happens inside an action, a note tells you which action and with which argument types it was compiled.
 An action that is never called is checked too; the note then says so.
@@ -62,6 +64,8 @@ Error in line 2: Cannot divide by zero.
 | `That list position does not exist ...` | Index outside the list; the first item is at position 0. |
 | `That position does not exist in this text ...` | `text at 9` is past the last letter; the first letter is at position 0. |
 | `The step of a 'for' loop cannot be 0.` | `for i from 1 to 10 step 0` would never end. |
+| `Cannot wait a negative time.` | `wait -1`. |
+| `The file 'x' does not exist.` / `I cannot read the file 'x'.` / `I cannot write the file 'x'.` | The path is wrong, the file is not a text file, or the folder cannot be written. A path without a folder means next to the program. |
 | *your own message* | Made by `fail "..."` in the program. Catch it with `try`. |
 | `'replace' needs a text to look for, but it is empty.` | `replace(text, "", ...)` has nothing to replace. |
 | `The computer ran out of memory.` | Allocation failed. |

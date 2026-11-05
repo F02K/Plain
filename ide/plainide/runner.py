@@ -11,8 +11,13 @@ from .paths import FROZEN, LAUNCHER, NO_WINDOW
 
 
 def child_command():
-    """The command that runs a translated Python file: the IDE itself, in 'run' mode (see plain_ide.py)."""
-    return [sys.executable, "--run"] if FROZEN else [sys.executable, LAUNCHER, "--run"]
+    """The command that runs a translated Python file: the IDE itself, in 'run' mode (see plain_ide.py).
+    Started from the source folder it is plain_ide.py; installed with pip it is 'python -m plainide'."""
+    if FROZEN:
+        return [sys.executable, "--run"]
+    if os.path.isfile(LAUNCHER):
+        return [sys.executable, LAUNCHER, "--run"]
+    return [sys.executable, "-m", "plainide", "--run"]
 
 
 class Runner:
@@ -24,11 +29,12 @@ class Runner:
     def running(self):
         return self.proc is not None and self.proc.poll() is None
 
-    def start(self, cmd, extra_env=None):
+    def start(self, cmd, extra_env=None, cwd=None):
+        """cwd: the folder the program runs in (so that its files are found next to it)."""
         env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8", **(extra_env or {}))
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, bufsize=0, env=env,
-                                     creationflags=NO_WINDOW)
+                                     creationflags=NO_WINDOW, cwd=cwd if cwd and os.path.isdir(cwd) else None)
         threading.Thread(target=self._pump, args=(self.proc,), daemon=True).start()
 
     def _pump(self, proc):

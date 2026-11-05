@@ -5,9 +5,13 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
-from plain.lexer import KEYWORDS
+from plain.checker import check_program
+from plain.errors import PlainError
+from plain.lexer import KEYWORDS, tokenize
+from plain.parser import parse
 
 from .completer import Completer
+from .findbar import FindBar
 from .language import (COLOR_WORD, HELPERS, INDENT, NEW_PROGRAM, OPENERS, PHRASES, PROJECT_KEYS, kind_of)
 from .symbols import TOKEN, analyze
 
@@ -26,6 +30,9 @@ class EditorTab(ttk.Frame):
         self.inline_labels = {}
         self.line_count = 0
         self.untitled = untitled          # "Untitled 1" while the file has no path
+        self.problem = None               # (line, message) of the first mistake found while typing
+        self.check_job = None
+        self.cursor_line = 1
         font = app.font
 
         self.gutter = tk.Text(self, width=4, padx=10, pady=6, font=font, bd=0, highlightthickness=0,
@@ -45,6 +52,7 @@ class EditorTab(ttk.Frame):
         xscroll.grid(row=1, column=1, sticky="ew")
         self.info = ttk.Label(self, text="", anchor="w", padding=(12, 3), style="Info.TLabel")
         self.info.grid(row=2, column=0, columnspan=3, sticky="ew")
+        self.findbar = FindBar(self)            # Ctrl+F; stays hidden until it is asked for
 
         self.restyle()
         self.text.tag_lower("current_line")
@@ -86,6 +94,11 @@ class EditorTab(ttk.Frame):
         self.text.tag_configure("current_line", background=t["current_line"])
         self.text.tag_configure("symbol", background=t["symbol"])
         self.text.tag_configure("symbol_def", background=t["symbol_def"], underline=True)
+        try:
+            self.text.tag_configure("problem", underline=True, underlinefg=t["out_err"])
+        except tk.TclError:                     # an old Tk without colored underlines
+            self.text.tag_configure("problem", underline=True)
+        self.findbar.restyle()
         for label in self.inline_labels.values():
             label.config(fg=t["inline_fg"], bg=t["inline_bg"])
 
@@ -98,6 +111,9 @@ class EditorTab(ttk.Frame):
         self.text.tag_add("current_line", f"{line}.0", f"{line}.end+1c")
         if self.app.documents.current() is self:
             self.app.update_position(line, col + 1)
+        if line != self.cursor_line:            # the line you were writing is finished: look at it now
+            self.cursor_line = line
+            self.schedule_check(editing=False)
 
     # ---- file state ----------------------------------------------------------
 
@@ -122,6 +138,7 @@ class EditorTab(ttk.Frame):
         self.rehighlight()
         self.update_gutter()
         self.clear_marks()
+        self.schedule_check(editing=False)
 
     def on_modified(self, _event):
         if not self.text.edit_modified():
@@ -136,6 +153,41 @@ class EditorTab(ttk.Frame):
         if self.highlight_job:
             self.after_cancel(self.highlight_job)
         self.highlight_job = self.after(120, self.rehighlight)
+        self.schedule_check(editing=True)
+
+    # ---- mistakes while typing -----------------------------------------------
+
+    def schedule_check(self, editing):
+        """Look for a mistake a moment after you stopped typing."""
+        if self.kind != "plain":
+            return
+        if self.check_job:
+            self.after_cancel(self.check_job)
+        self.check_job = self.after(900 if editing else 250, lambda: self.run_check(editing))
+
+    def run_check(self, editing=False):
+        """Check the program quietly. A mistake is underlined and shown in the status bar. The line the
+        cursor is in is left alone while you are typing there, because it is probably not finished."""
+        self.check_job = None
+        self.text.tag_remove("problem", "1.0", "end")
+        self.problem = None
+        if self.kind == "plain":
+            try:
+                check_program(parse(tokenize(self.source()), self.app.running.base_dir_of(self)))
+            except PlainError as err:
+                if not err.file and err.line:
+                    line = int(self.text.index("insert").split(".")[0])
+                    if not (editing and err.line == line):
+                        self.problem = (err.line, err.message)
+            except Exception:                   # a check must never get in the way of typing
+                pass
+        if self.problem:
+            self.text.tag_add("problem", f"{self.problem[0]}.0", f"{self.problem[0]}.end")
+        self.publish_problem()
+
+    def publish_problem(self):
+        if self.app.documents.current() is self:
+            self.app.status.set_problem(*(self.problem or (None, "")))
 
     # ---- look ----------------------------------------------------------------
 

@@ -219,6 +219,8 @@ class Parser:
             sentence = self.parse_module_command()
             if sentence is not None:
                 return sentence
+            if tok.value == "wait" and (self.peek().kind in ("NUMBER", "NAME", "TEXT") or self.peek().is_sym("-")):
+                return self.parse_wait()
             return self.parse_expr_statement()
         self.error(tok, f"I did not expect {describe(tok)} at the start of a line.")
 
@@ -315,7 +317,7 @@ class Parser:
                        f"To change a variable write: set {start.value} to ...")
         following = self.peek()
         if start.kind == "NAME" and following.kind in ("NAME", "TEXT", "NUMBER") and not following.is_kw("of", "at"):
-            known = sorted(KEYWORDS - {"be", "to", "then", "do", "end", "else", "in", "as", "of", "at", "from", "times",
+            known = sorted((KEYWORDS | {"wait"}) - {"be", "to", "then", "do", "end", "else", "in", "as", "of", "at", "from", "times",
                                        "each", "catch", "and", "or", "not", "mod", "true", "false", "nothing", "list"})
             close = difflib.get_close_matches(start.value, known, n=1)
             hint = (f"Did you mean '{close[0]}'?" if close else
@@ -462,6 +464,15 @@ class Parser:
         self.expect_kw("end")
         self.end_statement()
         return N.ForCount(var.value, first, last, step, body, line=start.line, col=start.col)
+
+    def parse_wait(self):
+        """wait 2 seconds     (also: wait 1 second, wait pause)"""
+        start = self.advance()
+        seconds = self.parse_additive()
+        if word(self.cur, "second") or word(self.cur, "seconds"):
+            self.advance()
+        self.end_statement()
+        return N.Wait(seconds, line=start.line, col=start.col)
 
     def parse_stop(self):
         start = self.advance()

@@ -55,7 +55,7 @@ class QuickOpen:
         self.y = root.winfo_rooty() + 70
         box = tk.Frame(self.win, bg=t["pop_bg"])
         box.pack(fill="both", expand=True, padx=1, pady=1)
-        self.var = tk.StringVar()
+        self.var = tk.StringVar(master=self.win)
         self.entry = tk.Entry(box, textvariable=self.var, font=app.ui_font, bd=0, relief="flat",
                               bg=t["input_bg"], fg=t["fg"], insertbackground=t["fg"])
         self.entry.pack(fill="x", padx=6, pady=6, ipady=3)
