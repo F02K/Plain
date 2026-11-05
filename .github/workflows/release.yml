@@ -32,15 +32,15 @@ jobs:
       - name: Build the IDE
         run: python ide/build.py
       - name: Build the compiler program
-        run: python -m PyInstaller --noconfirm --onefile --name plain --paths . --distpath dist --workpath build --specpath build packaging/plain_cli.py
+        run: python packaging/build_cli.py
       - name: Collect files
         shell: bash
         run: |
           mkdir -p "plain-${TAG}-${{ matrix.name }}"
           cd "plain-${TAG}-${{ matrix.name }}"
-          cp ../dist/plain${{ matrix.exe }} .
+          cp ../packaging/dist/plain${{ matrix.exe }} .
           cp ../ide/dist/PlainIDE${{ matrix.exe }} .
-          cp -r ../examples ../docs .
+          cp -r ../examples ../docs ../modules .
           cp ../README.md ../LICENSE ../LICENSE-EXCEPTION.md .
       - name: Pack (zip)
         if: matrix.pack == 'zip'

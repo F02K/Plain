@@ -1,12 +1,12 @@
-"""Python backend: writes a standalone Python program from the syntax tree.
+"""Python writer: turns the syntax tree into a standalone Python program.
 
-Type checking is done by the normal compiler first (see toolchain.py), so a
-program that is rejected for the native target is rejected here too.
+The checker has already accepted the program (see toolchain.py).
 """
 
 from . import library as L
 from . import nodes as N
-from .pyruntime import GFX_PRELUDE, PRELUDE, WATCH_PRELUDE
+from . import modules as M
+from .pyruntime import PRELUDE, WATCH_PRELUDE
 
 
 def var(name):
@@ -17,7 +17,6 @@ class PyGen:
     def __init__(self, program, watch=False):
         self.program = program
         self.out = []
-        self.uses_gfx = False
         self.watch = watch
         self.scope = ""   # name of the action being written, for the watcher
 
@@ -26,6 +25,9 @@ class PyGen:
 
     def generate(self):
         self.out.append(PRELUDE)
+        for name in self.program.imports:
+            self.out.append(f"# ---- module {name} (modules/{name}/{name}.py)")
+            self.out.append(M.load(name).python_source())
         for stmt in self.program.body:
             if isinstance(stmt, N.DefineStruct):
                 self.struct(stmt)
@@ -46,8 +48,6 @@ class PyGen:
         self.line(0, "")
         self.line(0, 'if __name__ == "__main__":')
         self.line(1, "_run(_main)")
-        if self.uses_gfx:
-            self.out.insert(1, GFX_PRELUDE)
         if self.watch:
             self.out.insert(1, WATCH_PRELUDE)
         return "\n".join(self.out) + "\n"
@@ -105,10 +105,6 @@ class PyGen:
             getattr(self, "s_" + type(stmt).__name__)(stmt, indent)
         if len(self.out) == before:
             self.line(indent, "pass")
-
-    def s_Group(self, s, i):
-        for stmt in s.body:
-            getattr(self, "s_" + type(stmt).__name__)(stmt, i)
 
     def s_Let(self, s, i):
         value = "[]" if isinstance(s.value, N.ListInit) else self.expr(s.value)
@@ -250,11 +246,11 @@ class PyGen:
         return f"({l} {op} {r})"
 
     def x_Call(self, e):
+        if e.module:       # a sentence of a module: its Python function gets the line number last
+            if self.watch:
+                return f"_tg({e.line}, {e.name}" + "".join(", " + self.expr(a) for a in e.args) + ")"
+            return f"{e.name}(" + ", ".join([self.expr(a) for a in e.args] + [str(e.line)]) + ")"
         if e.name in L.CALLS:
-            if e.name in L.GFX:
-                self.uses_gfx = True
-                if self.watch:
-                    return f"_tg({e.line}, _{e.name}" + "".join(", " + self.expr(a) for a in e.args) + ")"
             return f"_{e.name}(" + ", ".join([self.expr(a) for a in e.args] + [str(e.line)]) + ")"
         if e.named is not None:
             args = ", ".join(f"f_{n}={self.expr(v)}" for n, v in e.named)

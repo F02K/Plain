@@ -49,9 +49,9 @@ from tkinter import font as tkfont  # noqa: E402
 
 from plain.errors import PlainError, format_error  # noqa: E402
 from plain.lexer import KEYWORDS  # noqa: E402
-from plain.library import CALLS, GFX, OF  # noqa: E402
-from plain.parser import COLORS  # noqa: E402
-from plain.toolchain import ToolError, build_executable, compile_source, compile_to_python, host_target  # noqa: E402
+from plain import modules as MODULES  # noqa: E402
+from plain.library import CALLS, OF  # noqa: E402
+from plain.toolchain import compile_to_python  # noqa: E402
 
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
@@ -63,13 +63,11 @@ NEW_PROGRAM = 'say "Hello, world!"\n'
 INDENT = "    "
 OPENERS = re.compile(r"\b(then|do|as|times)$")
 WORD_BEFORE_CURSOR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*$")
-HELPER_CALLS = set(CALLS) - set(GFX)
+HELPER_CALLS = set(CALLS)
 HELPERS = HELPER_CALLS | set(OF)
-# The window sentences are highlighted as a whole, so that names like 'size' or 'color' stay ordinary names.
-PHRASES = re.compile(r'\b(?:open window|close window|show window|clear window(?: with color)?|use color|'
-                     r'draw (?:rectangle|circle|line|text)|window is open|mouse is down|mouse x|mouse y|is pressed|'
-                     r'key(?= (?:"[^"\n]*"|\w+) is pressed)|takes(?=\s*\())')
-COLOR_WORD = re.compile(r"(?<=color )(?:" + "|".join(COLORS) + r")\b")
+# The sentences of the modules are highlighted as a whole, so that names like 'size' stay ordinary names.
+PHRASES = re.compile(MODULES.highlight_regex() + r'|\btakes(?=\s*\()|\bkey(?= (?:"[^"\n]*"|\w+) is pressed)')
+COLOR_WORD = re.compile(r"(?<=color )(?:" + "|".join(MODULES.color_names()) + r")\b")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # Words that expand into a whole block when you accept them in the completion list.
@@ -80,15 +78,13 @@ SNIPPETS = {
     "repeat": "repeat | times\n{i}    \n{i}end",
     "for": "for each | in  do\n{i}    \n{i}end",
     "action": "action |name takes() do\n{i}    \n{i}end",
-    "open": 'open window "|My game" with width 640 and height 480',
-    "draw": "draw circle at |200, 150 radius 20",
-    "use": "use color |orange",
-    "clear": "clear window with color |black",
-    "show": "show window",
-    "close": "close window",
     "define": "define |Name as\n{i}    field as number\n{i}end",
     "try": "try\n{i}    |\n{i}catch error then\n{i}    \n{i}end",
 }
+
+for _module in MODULES.load_all():      # 'open', 'draw', 'use', ... fill in a whole sentence
+    for _pattern in _module.commands():
+        SNIPPETS.setdefault(_pattern.parts[0].word, _pattern.snippet())
 
 LIGHT = {
     "bg": "#ffffff", "fg": "#1f2328", "gutter_bg": "#f3f4f6", "gutter_fg": "#8a8f98",
@@ -469,7 +465,7 @@ class EditorTab(ttk.Frame):
             shown = text.replace("->", "→")
             if label.cget("text") != shown:
                 label.config(text=shown)
-            label.place(x=x + w + 18, y=y, height=h)
+            label.place(x=x + 18, y=y, height=h)
             if n in changed:
                 label.config(bg=t["watch_changed"])
                 self.after(700, lambda lb=label: lb.winfo_exists() and lb.config(bg=t["inline_bg"]))
@@ -616,7 +612,6 @@ class App:
         self.run_id = 0
         self.run_tab = None
         self.project = None
-        self.ui_queue = queue.Queue()
         self.reporting = False
         self.folder_nodes = {}
         self.watch_var = tk.BooleanVar(value=False)    # the list of values on the right
@@ -700,10 +695,6 @@ class App:
         self.run_button.pack(side="left")
         self.stop_button = ttk.Button(bar, text="■  Stop", command=self.stop, state="disabled")
         self.stop_button.pack(side="left", padx=(6, 0))
-        ttk.Label(bar, text="Run with:").pack(side="left", padx=(18, 4))
-        self.backend = tk.StringVar(value="Python")
-        ttk.Combobox(bar, textvariable=self.backend, values=["Python", "Assembly"], width=8,
-                     state="readonly").pack(side="left")
         ttk.Checkbutton(bar, text="Live values", variable=self.live_var).pack(side="left", padx=(18, 0))
         ttk.Checkbutton(bar, text="Value list", variable=self.watch_var,
                         command=self.toggle_watch).pack(side="left", padx=(10, 0))
@@ -1072,20 +1063,9 @@ class App:
             t.clear_marks()
         self.clear_output()
         self.reset_watch()
-        watch = (self.watch_var.get() or self.live_var.get()) and self.backend.get() == "Python"
+        watch = self.watch_var.get() or self.live_var.get()
         for t in self.tabs():
             t.clear_inline()
-        if self.live_var.get() and self.backend.get() != "Python":
-            tab.info.config(text="Live values work with the Python backend. Choose 'Python' next to the Run button.")
-        if self.backend.get() == "Assembly":
-            if not (shutil.which("nasm") and shutil.which("gcc")):
-                self.write_output("The Assembly backend needs NASM and gcc, and I cannot find them.\n"
-                                  "Install them (see the README) or choose 'Python' next to the Run button.\n", "err")
-                return
-            self.write_output("Compiling...\n", "info")
-            self.set_running(True, compiling=True)
-            threading.Thread(target=self.compile_assembly, args=(run_id, tab, source), daemon=True).start()
-            return
         try:
             py_path = os.path.join(self.tmp, f"program{run_id}.py")
             with open(py_path, "w", encoding="utf-8") as f:
@@ -1099,23 +1079,6 @@ class App:
             extra_env = {"PLAIN_WATCH": self.watch_file}
         self.start_program(self.child_command() + [py_path], extra_env=extra_env)
 
-    def compile_assembly(self, run_id, tab, source):
-        """Runs in a thread so the window stays alive while NASM and gcc work."""
-        exe = os.path.join(self.tmp, f"program{run_id}" + (".exe" if host_target() == "windows" else ""))
-        try:
-            build_executable(compile_source(source, host_target()), exe, host_target())
-            result = lambda: self.start_program([exe], run_id)  # noqa: E731
-        except PlainError as err:
-            result = lambda err=err: self.show_compile_error(tab, source, err, run_id)  # noqa: E731
-        except ToolError as err:
-            result = lambda err=err: self.show_tool_error(err, run_id)  # noqa: E731
-        except Exception:  # keep the thread's crash visible instead of a silent "Compiling..."
-            info = sys.exc_info()
-            log_crash("assembly compile", *info)
-            message = f"The compiler failed: {info[1]}"
-            result = lambda: self.show_tool_error(message, run_id)  # noqa: E731
-        self.ui_queue.put(result)
-
     def show_compile_error(self, tab, source, err, run_id=None):
         if run_id is not None and run_id != self.run_id:
             return
@@ -1123,13 +1086,6 @@ class App:
         self.set_running(False)
         self.write_output(format_error(err, source, tab.name) + "\n", "err")
         tab.mark_line(err.line)
-
-    def show_tool_error(self, err, run_id):
-        if run_id != self.run_id:
-            return
-        self.set_running(False)
-        self.clear_output()
-        self.write_output(str(err) + "\n", "err")
 
     def start_program(self, cmd, run_id=None, extra_env=None):
         if run_id is not None and run_id != self.run_id:
@@ -1147,16 +1103,12 @@ class App:
         if self.runner.running:
             self.runner.stop()
             self.write_output("\n[stopped]\n", "info")
-        elif self.stop_button.cget("state") == "normal":    # still compiling
-            self.run_id += 1
-            self.set_running(False)
-            self.write_output("\n[stopped]\n", "info")
 
-    def set_running(self, running, compiling=False):
+    def set_running(self, running):
         self.run_button.config(state="disabled" if running else "normal")
         self.stop_button.config(state="normal" if running else "disabled")
-        self.entry.config(state="normal" if running and not compiling else "disabled")
-        if running and not compiling:
+        self.entry.config(state="normal" if running else "disabled")
+        if running:
             self.entry.focus_set()
         elif not running and self.current():
             self.current().text.focus_set()
@@ -1177,12 +1129,8 @@ class App:
         self.watch_rows = {}
         self.watch_changed = {}
         self.watch_tree.delete(*self.watch_tree.get_children())
-        if self.backend.get() == "Assembly":
-            self.watch_note.config(text="Watching values works with the Python backend. "
-                                        "Choose 'Python' next to the Run button.")
-        else:
-            self.watch_note.config(text="Run the program to see its values. Values that just changed "
-                                        "are highlighted. Click a row to find it in the code.")
+        self.watch_note.config(text="Run the program to see its values. Values that just changed "
+                                    "are highlighted. Click a row to find it in the code.")
 
     def poll_watch(self):
         try:
@@ -1240,11 +1188,6 @@ class App:
         self.runner.send(line)
 
     def poll(self):
-        try:
-            while True:
-                self.ui_queue.get_nowait()()
-        except queue.Empty:
-            pass
         try:
             while True:
                 proc, kind, data = self.runner.events.get_nowait()
@@ -1359,12 +1302,44 @@ class App:
         box.pack(fill="both", expand=True)
 
 
+def selftest(app, root, report):
+    """Run the first tab with 'Live values' on and write what the IDE showed to a file, then quit."""
+    root.withdraw()
+    app.live_var.set(True)
+    app.run()
+    deadline = time.time() + 15
+
+    def finish():
+        tab = app.run_tab
+        if app.runner.running and time.time() < deadline:
+            root.after(200, finish)
+            return
+        root.after(600, lambda: write(tab))
+
+    def write(tab):
+        data = {"output": app.output.get("1.0", "end").strip(), "values": tab.inline if tab else {},
+                "labels": len(tab.inline_labels) if tab else 0}
+        with open(report, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        app.runner.stop()
+        root.destroy()
+
+    root.after(200, finish)
+
+
 def main():
     try:
         root = tk.Tk()
         root.geometry("1100x760")
         root.minsize(560, 420)
-        App(root, sys.argv[1:])
+        args = sys.argv[1:]
+        report = None
+        if args[:1] == ["--selftest"]:       # used by the build checks: run the file with live values, hidden
+            report, args = args[1], args[2:]
+            root.geometry("1100x760+4000+4000")
+        app = App(root, args)
+        if report:
+            root.after(300, lambda: selftest(app, root, report))
         root.mainloop()
     except Exception:
         info = sys.exc_info()

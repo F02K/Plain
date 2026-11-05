@@ -1,4 +1,6 @@
 note: Hold the mouse button to paint. Keys 1, 2, 3 change the color, C clears the picture.
+import window
+
 let blue_pen be Color(red: 50, green: 100, blue: 230)
 let red_pen be Color(red: 230, green: 50, blue: 50)
 let green_pen be Color(red: 50, green: 180, blue: 70)

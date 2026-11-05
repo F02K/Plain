@@ -2,13 +2,13 @@
 
 <p align="center">
   <strong>A programming language that reads like English.</strong><br>
-  Made for beginners and schools. Compiles to native machine code.
+  Made for beginners and schools. Python, but simpler.
 </p>
 
 <p align="center">
   <a href="https://github.com/F02K/Plain/actions/workflows/ci.yml"><img alt="tests" src="https://github.com/F02K/Plain/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="status" src="https://img.shields.io/badge/status-MVP-orange">
-  <img alt="targets" src="https://img.shields.io/badge/targets-Linux%20x64%20%7C%20Windows%20x64-blue">
+  <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue">
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-Apache%202.0%20%2B%20Commons%20Clause-green"></a>
 </p>
 
@@ -36,65 +36,49 @@ say name + " has " + health of hero + " health."
 | | |
 | --- | --- |
 | **Readable** | Keywords are English words: `if`, `then`, `while`, `do`, `end`. |
-| **Nothing hidden** | No implicit conversions, no hidden allocations, no virtual machine, no garbage collector. |
 | **Hard to get wrong** | `let` creates a variable, `set` changes it, and `=` only ever *compares* - the classic `=` / `==` mistake cannot happen. |
+| **Checked before it runs** | Plain finds type mistakes before the program starts and explains them in plain words. |
 | **Friendly errors** | Messages show the line, point at the problem and suggest a fix. |
-| **Real and fast** | Plain compiles to x64 assembly, then to a normal executable. It can also be translated to Python. Students can read the generated code. |
+| **Python underneath** | A Plain program is checked and translated to a normal Python file that students can read. It runs everywhere Python runs. |
+| **Modules** | Extras such as windows and drawing are modules: `import window`. A module says in one small file which sentences it adds. |
 
 ## Install
 
-You need **Python 3.10+**. For the assembly backend you also need **NASM** and a C compiler for linking (not needed for the Python backend).
-
-<details open>
-<summary>Linux (Debian / Ubuntu)</summary>
+You need **Python 3.10+**. Nothing else.
 
 ```
-sudo apt install nasm gcc python3
-git clone https://github.com/F02K/Plain.git && cd Plain
-```
-</details>
-
-<details>
-<summary>Windows</summary>
-
-Install Python, [NASM](https://www.nasm.us/) and [MinGW-w64](https://www.mingw-w64.org/) (gcc), then clone the repository.
-With `winget` (PowerShell):
-
-```
-winget install Python.Python.3.12
-winget install NASM.NASM
-winget install BrechtSanders.WinLibs.POSIX.UCRT
-git clone https://github.com/F02K/Plain.git; cd Plain
+git clone https://github.com/F02K/Plain.git
+cd Plain
 ```
 
-Open a new terminal afterwards so `PATH` is updated, and check with `nasm -v` and `gcc --version`.
-On Windows use `python` (or `py`) instead of `python3`, and `python tests/run_tests.py` for the tests.
-Executables get the `.exe` ending automatically.
-The test-suite runs on Windows in CI (native executables built with NASM and MinGW-w64).
-</details>
-
+On Windows use `python` (or `py`) instead of `python3`.
 Optional: `pip install .` adds a `plain` command. For a simple editor with a Run button (handy in classrooms) see [`ide/`](ide/README.md). Otherwise use `python3 -m plain`.
 
 ## Usage
 
 ```
-plain run examples/hello.plain                  # compile and run
-plain build examples/game.plain -o game         # produce an executable
-plain build game.plain --target windows         # cross-target (needs MinGW)
-plain asm examples/game.plain                   # only write the assembly (.asm)
-plain python examples/game.plain -o game.py     # translate to a standalone Python file
-plain run examples/game.plain --backend python  # translate to Python and run it
+plain run examples/hello.plain                  # check, translate and run
+plain python examples/game.plain -o game.py     # only write the Python file
 ```
 
-Plain has two backends. Both use the same type checker and give the same results.
+## Modules
 
-| Backend | Output | Needs |
-| --- | --- | --- |
-| assembly (default) | x64 assembly -> executable | NASM + gcc |
-| python | a standalone `.py` file | Python only |
+Windows and drawing are not part of the language itself. A program asks for them at the top:
 
-The Python backend is handy where NASM is not available (for example on a school
-computer) and for reading the translation of a program.
+```
+import window
+
+open window "My game" with width 480 and height 320
+while window is open do
+    clear window with color black
+    use color orange
+    draw circle at 240, 160 radius 30
+    show window
+end
+```
+
+Every module lives in `modules/NAME/`: a `NAME.plain` file lists its sentences, a `NAME.py` file does the work.
+See [Modules](docs/modules.md).
 
 ## A quick tour
 
@@ -137,18 +121,20 @@ More: [`examples/`](examples/) and the full [language reference](docs/language.m
 | [Getting started](docs/getting-started.md) | Your first programs, step by step |
 | [Language reference](docs/language.md) | Every statement, type and operator |
 | [Error messages](docs/errors.md) | The errors you will meet and how to fix them |
-| [Compiler internals](docs/compiler.md) | Architecture, value model, roadmap |
+| [Modules](docs/modules.md) | `import`, the window module, how to write a module |
+| [How it works](docs/compiler.md) | Architecture and roadmap |
 | [Contributing](CONTRIBUTING.md) | Development setup and tests |
 
 ## Project status
 
-Plain is an **MVP**. The core language works and is tested in CI on Linux x64 and Windows x64.
-Windows and drawing work (see [`examples/ball.plain`](examples/ball.plain)); sprites, sound and Linux windows in the assembly backend are on the [roadmap](docs/compiler.md#roadmap).
+Plain is an **MVP**. The core language works and is tested in CI on Linux and Windows.
+Windows and drawing work as a module (see [`examples/ball.plain`](examples/ball.plain)); more modules are on the [roadmap](docs/compiler.md#roadmap).
 
 ## Repository layout
 
 ```
-plain/       the compiler (lexer, parser, code generator, runtime, CLI)
+plain/       the compiler (lexer, parser, checker, Python writer, CLI)
+modules/     modules such as window (a .plain file with the sentences, a .py file with the code)
 examples/    example programs
 tests/       test runner, run-cases and error-cases
 docs/        documentation

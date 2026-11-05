@@ -21,6 +21,7 @@ def main():
         "--name", "PlainIDE",
         "--paths", ROOT,
         "--add-data", os.path.join(ROOT, "examples") + os.pathsep + "examples",
+        "--add-data", os.path.join(ROOT, "modules") + os.pathsep + "modules",
         "--distpath", out,
         "--workpath", os.path.join(HERE, "build"),
         "--specpath", os.path.join(HERE, "build"),

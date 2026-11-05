@@ -1,5 +1,7 @@
 note: A small ball game. Move the paddle with the left and right arrow keys.
 note: Close the window to stop.
+import window
+
 open window "Plain Ball" with width 480 and height 320
 
 let ball_x be 240

@@ -9,10 +9,10 @@ licensed under the Apache License 2.0 with the Commons Clause (see `LICENSE`).
 
 This covers:
 
-- the executables, object files and assembly (`.asm`) files the compiler produces,
 - the Python files produced by `plain python`,
 - the runtime code that the compiler copies into those files (for example the
-  helper routines in `plain/runtime_asm.py` and `plain/pyruntime.py`).
+  helper routines in `plain/pyruntime.py` and the Python code of a module such as
+  `modules/window/window.py`).
 
 You may use, copy, modify, distribute, license and **sell** these generated files,
 alone or as part of a larger product, under any terms you like, including
@@ -20,7 +20,7 @@ proprietary terms and for a fee. No attribution is required, and the Commons
 Clause "Sell" restriction does not apply to them.
 
 This exception does **not** cover the Plain compiler itself (the contents of the
-`plain/` directory as a whole, the tests and the documentation). Selling Plain,
+`plain/` and `modules/` directories as a whole, the tests and the documentation). Selling Plain,
 or a product or service whose value derives entirely or substantially from Plain
 itself, remains subject to the Commons Clause.
 

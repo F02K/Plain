@@ -68,6 +68,8 @@ class Call(Node):
     args: List[Node] = field(default_factory=list)
     # For constructors such as Player(x: 1): list of (field name, expression).
     named: Optional[List[Tuple[str, Node]]] = None
+    # For a sentence of a module (open window ...): the module's name. `name` is then the Python function.
+    module: Optional[str] = None
 
 
 @dataclass
@@ -141,12 +143,6 @@ class Return(Node):
 
 
 @dataclass
-class Group(Node):
-    """Several statements that came from one line of source (e.g. clear window with color red)."""
-    body: List[Node]
-
-
-@dataclass
 class ExprStmt(Node):
     expr: Node
 
@@ -197,3 +193,4 @@ class DefineStruct(Node):
 @dataclass
 class Program(Node):
     body: List[Node]
+    imports: List[str] = field(default_factory=list)

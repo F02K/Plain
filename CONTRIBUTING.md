@@ -3,17 +3,17 @@
 ## Setup
 
 ```
-sudo apt install nasm gcc python3
 python3 tests/run_tests.py
 ```
 
-On Windows install Python, NASM and MinGW-w64 (see the [README](README.md#install)) and run `python tests/run_tests.py`.
+On Windows use `python tests/run_tests.py`.
 
 No other dependencies - the compiler uses only the Python standard library.
 
 ## Tests
 
-- `tests/cases/NAME.plain` + `NAME.out` (+ optional `NAME.in` as keyboard input): the program is compiled, run on both backends (assembly and Python), and its output compared.
+- `tests/cases/NAME.plain` + `NAME.out` (+ optional `NAME.in` as keyboard input): the program is translated to Python, run, and its output compared.
+- `tests/windows/NAME.plain` + `NAME.out`: like the above for the window module, with the window hidden (`PLAIN_HEADLESS=1`).
 - `tests/errors/NAME.plain` + `NAME.err`: compilation must fail; every line of `NAME.err` must appear in the error message.
 
 Add a test with every new feature or fix. CI runs the same suite.
@@ -38,4 +38,4 @@ and [LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md)).
 Push a tag such as `v0.2.0` (or start the *release* workflow by hand on GitHub). It builds
 `plain` and `PlainIDE` for Windows and Linux, packs them with the examples and docs, and
 creates a **draft** release. Check the draft, then publish it.
-To build locally: `pip install pyinstaller`, then `python ide/build.py`.
+To build locally: `pip install pyinstaller`, then `python ide/build.py` (the IDE) and `python packaging/build_cli.py` (the `plain` program).

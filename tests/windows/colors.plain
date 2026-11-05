@@ -1,4 +1,6 @@
 note: Colors are checked without showing anything (PLAIN_HEADLESS).
+import window
+
 let sky be Color(red: 20, green: 24, blue: 40)
 open window "Colors" with width 200 and height 100
 clear window with color sky

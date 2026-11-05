@@ -9,7 +9,7 @@ KEYWORDS = {
     "repeat", "times", "while", "do", "for", "each", "in",
     "stop", "skip", "action", "return",
     "define", "as", "list", "of", "at", "add", "remove", "from", "sort",
-    "try", "catch",
+    "try", "catch", "import",
     "and", "or", "not", "mod",
     "true", "false", "nothing",
 }

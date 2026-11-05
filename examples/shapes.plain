@@ -1,4 +1,6 @@
 note: Draw a picture. Close the window to stop.
+import window
+
 let sky be Color(red: 120, green: 190, blue: 255)
 
 open window "My house" with width 480 and height 320

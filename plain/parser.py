@@ -2,6 +2,7 @@
 
 import copy
 
+from . import modules as M
 from . import nodes as N
 from . import typesys as T
 from .errors import PlainError
@@ -10,36 +11,9 @@ from .lexer import describe
 BLOCK_END = ("end", "else", "catch")
 COMPARE_OPS = ("=", "<", ">", "<=", ">=")
 
-# Named colors for 'use color orange' (red, green, blue).
-COLORS = {
-    "red": (230, 50, 50), "green": (50, 180, 70), "blue": (50, 100, 230),
-    "yellow": (250, 220, 50), "orange": (255, 150, 30), "purple": (150, 70, 200),
-    "pink": (255, 130, 180), "brown": (140, 90, 50), "gray": (128, 128, 128),
-    "white": (255, 255, 255), "black": (0, 0, 0),
-}
-
-# The window helpers used to be written as functions. They are sentences now.
-REMOVED_CALLS = {
-    "window": 'Write: open window "My game" with width 640 and height 480',
-    "color": "Write: use color orange   (or: use color mycolor)",
-    "clear": "Write: clear window   or   clear window with color black",
-    "rectangle": "Write: draw rectangle at 10, 10 size 100 by 50",
-    "circle": "Write: draw circle at 200, 150 radius 30",
-    "line": "Write: draw line from 0, 0 to 100, 100",
-    "write": 'Write: draw text "Score" at 10, 10',
-    "show": "Write: show window",
-    "close_window": "Write: close window",
-    "running": "Write: while window is open do",
-    "pressed": 'Write: if key "left" is pressed then',
-    "mouse_x": "Write: mouse x",
-    "mouse_y": "Write: mouse y",
-    "mouse_down": "Write: mouse is down",
-}
-
-
 def word(tok, name):
     """A contextual keyword: an ordinary name that has a special meaning only in certain places."""
-    return tok.kind == "NAME" and tok.value == name
+    return tok.kind in ("NAME", "KEYWORD") and tok.value == name
 
 
 class Parser:
@@ -47,6 +21,7 @@ class Parser:
         self.toks = tokens
         self.i = 0
         self.no_at = 0  # > 0 while 'at' must not be read as a list index (draw text ... at x, y)
+        self.modules = []   # the modules this program imported
 
     # ---- token helpers -----------------------------------------------------
 
@@ -106,14 +81,27 @@ class Parser:
     def parse_program(self):
         body = []
         self.skip_newlines()
+        while self.cur.is_kw("import"):
+            self.parse_import()
+            self.skip_newlines()
         while self.cur.kind != "EOF":
             body.append(self.parse_statement(top_level=True))
             self.skip_newlines()
-        uses_color = any(word(t, "Color") for t in self.toks)
-        if uses_color and not any(isinstance(b, N.DefineStruct) and b.name == "Color" for b in body):
-            body.insert(0, N.DefineStruct("Color", [("red", "number", 0), ("green", "number", 0),
-                                                    ("blue", "number", 0)], line=0, col=0))
-        return N.Program(body)
+        types = [node for module in self.modules for node in module.struct_nodes()]
+        return N.Program(types + body, [m.name for m in self.modules])
+
+    def parse_import(self):
+        start = self.advance()
+        name = self.expect_name("a module name")
+        module = M.load(name.value)
+        if module is None:
+            known = ", ".join(M.available()) or "none"
+            self.error(name, f"I don't know a module called '{name.value}'.", f"The modules are: {known}")
+        if module in self.modules:
+            self.error(name, f"The module '{name.value}' is already imported.")
+        self.modules.append(module)
+        self.end_statement()
+        return start
 
     def parse_block(self, stops, opener, what):
         body = []
@@ -138,6 +126,9 @@ class Parser:
                 "return": self.parse_return, "add": self.parse_add, "remove": self.parse_remove,
                 "try": self.parse_try, "sort": self.parse_sort, "do": self.parse_do,
             }.get(tok.value)
+            if tok.value == "import":
+                self.error(tok, "'import' must be at the top of the program, before everything else.",
+                           "For example:  import window")
             if tok.value in ("action", "define"):
                 if not top_level:
                     self.error(tok, f"'{tok.value}' can only be used at the top level of the program, "
@@ -150,124 +141,97 @@ class Parser:
                 hint = "There is an 'end' without a matching if/while/repeat/for/action/define/try."
             self.error(tok, f"I did not expect {describe(tok)} here.", hint)
         if tok.kind == "NAME":
-            window_statement = self.parse_window_statement()
-            if window_statement is not None:
-                return window_statement
+            sentence = self.parse_module_command()
+            if sentence is not None:
+                return sentence
             return self.parse_expr_statement()
         self.error(tok, f"I did not expect {describe(tok)} at the start of a line.")
 
-    # ---- windows and drawing (sentences instead of function calls) ---------
+    # ---- sentences from modules (open window ..., draw circle at ..., window is open) -----
 
-    def gfx(self, name, args, tok):
-        return N.Call(name, args, None, line=tok.line, col=tok.col)
+    def head_matches(self, pattern):
+        return all(word(self.peek(k), w) for k, w in enumerate(pattern.head_words()))
 
-    def gfx_stmt(self, name, args, tok):
-        return N.ExprStmt(self.gfx(name, args, tok), line=tok.line, col=tok.col)
+    def parse_module_command(self):
+        candidates = [p for m in self.modules for p in m.commands() if self.head_matches(p)]
+        if candidates:
+            pattern = max(candidates, key=lambda p: p.head)
+            tok = self.cur
+            args = self.parse_pattern(pattern)
+            self.end_statement()
+            return N.ExprStmt(N.Call(pattern.func, args, None, pattern.module, line=tok.line, col=tok.col),
+                              line=tok.line, col=tok.col)
+        for module in M.load_all():
+            if module in self.modules:
+                continue
+            for pattern in module.commands():
+                if self.head_matches(pattern):
+                    self.import_hint(module, " ".join(pattern.head_words()))
+        return None
 
-    def expect_word(self, name, hint):
+    def import_hint(self, module, sentence):
+        self.error(self.cur, f"'{sentence}' belongs to the module '{module.name}', which is not imported.",
+                   f"Add this line at the very top of your program:  import {module.name}")
+
+    def try_question(self):
+        """A sentence that gives a value, e.g. 'window is open'. Returns None when the words are something else."""
         tok = self.cur
-        if not word(tok, name):
-            self.error(tok, f"I expected '{name}' here but found {describe(tok)}.", hint)
-        return self.advance()
+        if tok.kind != "NAME":
+            return None
+        for module in M.load_all():
+            for pattern in module.questions():
+                if not word(tok, pattern.parts[0].word):
+                    continue
+                saved, saved_at = self.i, self.no_at
+                try:
+                    args = self.parse_pattern(pattern)
+                except PlainError:
+                    self.i, self.no_at = saved, saved_at
+                    continue
+                if module not in self.modules:
+                    self.i = saved
+                    self.import_hint(module, pattern.example())
+                return N.Call(pattern.func, args, None, pattern.module, line=tok.line, col=tok.col)
+        return None
 
-    def parse_color(self):
-        """A color name (orange) or a Color value (sky): returns red, green, blue expressions."""
+    def parse_pattern(self, pattern):
+        """Read one sentence of a module: its words and commas must be there, its values are expressions."""
+        hint = "Write: " + pattern.example()
+        args = []
+        for k, part in enumerate(pattern.parts):
+            if part.kind == "word":
+                if not word(self.cur, part.word):
+                    self.error(self.cur, f"I expected '{part.word}' here but found {describe(self.cur)}.", hint)
+                self.advance()
+            elif part.kind == "comma":
+                self.expect_sym(",", hint)
+            elif part.type == "color":
+                args += self.parse_color(pattern.module, hint)
+            else:
+                following = pattern.parts[k + 1] if k + 1 < len(pattern.parts) else None
+                guard = following is not None and following.kind == "word" and following.word == "at"
+                self.no_at += guard
+                try:
+                    args.append(self.parse_additive())
+                finally:
+                    self.no_at -= guard
+        return args
+
+    def parse_color(self, module_name, hint):
+        """A color name (orange), a Color value (sky) or three numbers: returns red, green, blue expressions."""
         tok = self.cur
-        if tok.kind == "NAME" and tok.value in COLORS and self.peek().kind in ("NEWLINE", "EOF"):
+        colors = M.load(module_name).colors
+        if tok.kind == "NAME" and tok.value in colors and self.peek().kind in ("NEWLINE", "EOF"):
             self.advance()
-            return [N.Num(float(v), line=tok.line, col=tok.col) for v in COLORS[tok.value]]
+            return [N.Num(float(v), line=tok.line, col=tok.col) for v in colors[tok.value]]
         value = self.parse_additive()
         if self.cur.is_sym(","):            # use color 255, 128, 0
             self.advance()
             green = self.parse_additive()
-            self.expect_sym(",", "Write: use color 255, 128, 0   (red, green, blue from 0 to 255)")
+            self.expect_sym(",", "Write three numbers from 0 to 255:  use color 255, 128, 0")
             return [value, green, self.parse_additive()]
         return [N.Field(part, copy.deepcopy(value), line=tok.line, col=tok.col)
                 for part in ("red", "green", "blue")]
-
-    def parse_window_statement(self):
-        tok, nxt = self.cur, self.peek()
-        w = tok.value
-        if w == "open" and word(nxt, "window"):
-            hint = 'Write: open window "My game" with width 640 and height 480'
-            self.advance()
-            self.advance()
-            title = self.parse_additive()
-            self.expect_word("with", hint)
-            self.expect_word("width", hint)
-            width = self.parse_additive()
-            self.expect_kw("and", hint)
-            self.expect_word("height", hint)
-            height = self.parse_additive()
-            self.end_statement()
-            return self.gfx_stmt("window", [title, width, height], tok)
-        if w in ("close", "show") and word(nxt, "window"):
-            self.advance()
-            self.advance()
-            self.end_statement()
-            return self.gfx_stmt("close_window" if w == "close" else "show", [], tok)
-        if w == "clear" and word(nxt, "window"):
-            self.advance()
-            self.advance()
-            if word(self.cur, "with"):
-                self.advance()
-                self.expect_word("color", "Write: clear window with color black")
-                rgb = self.parse_color()
-                self.end_statement()
-                return N.Group([self.gfx_stmt("color", rgb, tok), self.gfx_stmt("clear", [], tok)],
-                               line=tok.line, col=tok.col)
-            self.end_statement()
-            return self.gfx_stmt("clear", [], tok)
-        if w == "use" and word(nxt, "color"):
-            self.advance()
-            self.advance()
-            rgb = self.parse_color()
-            self.end_statement()
-            return self.gfx_stmt("color", rgb, tok)
-        if w == "draw" and nxt.kind == "NAME" and nxt.value in ("rectangle", "circle", "line", "text"):
-            self.advance()
-            shape = self.advance().value
-            if shape == "rectangle":
-                hint = "Write: draw rectangle at 10, 10 size 100 by 50"
-                self.expect_kw("at", hint)
-                x = self.parse_additive()
-                self.expect_sym(",", hint)
-                y = self.parse_additive()
-                self.expect_word("size", hint)
-                width = self.parse_additive()
-                self.expect_word("by", hint)
-                height = self.parse_additive()
-                args = [x, y, width, height]
-            elif shape == "circle":
-                hint = "Write: draw circle at 200, 150 radius 30"
-                self.expect_kw("at", hint)
-                x = self.parse_additive()
-                self.expect_sym(",", hint)
-                y = self.parse_additive()
-                self.expect_word("radius", hint)
-                args = [x, y, self.parse_additive()]
-            elif shape == "line":
-                hint = "Write: draw line from 0, 0 to 100, 100"
-                self.expect_kw("from", hint)
-                x1 = self.parse_additive()
-                self.expect_sym(",", hint)
-                y1 = self.parse_additive()
-                self.expect_kw("to", hint)
-                x2 = self.parse_additive()
-                self.expect_sym(",", hint)
-                args = [x1, y1, x2, self.parse_additive()]
-            else:
-                hint = 'Write: draw text "Score" at 10, 10'
-                self.no_at += 1
-                text = self.parse_additive()
-                self.no_at -= 1
-                self.expect_kw("at", hint)
-                x = self.parse_additive()
-                self.expect_sym(",", hint)
-                args = [text, x, self.parse_additive()]
-            self.end_statement()
-            return self.gfx_stmt({"text": "write"}.get(shape, shape), args, tok)
-        return None
 
     def parse_expr_statement(self):
         start = self.cur
@@ -445,7 +409,7 @@ class Parser:
         hint = "Write: action name takes(parameter1, parameter2) do"
         params = []
         if self.cur.is_sym("("):
-            self.error(self.cur, "Actions list their values with 'takes' now.", hint)
+            self.error(self.cur, "An action lists the values it needs after 'takes'.", hint)
         if word(self.cur, "takes"):
             self.advance()
             self.expect_sym("(", hint)
@@ -594,31 +558,9 @@ class Parser:
         if tok.is_kw("nothing"):
             self.advance()
             return N.Nothing(line=tok.line, col=tok.col)
-        if word(tok, "window") and word(self.peek(), "is") and word(self.peek(2), "open"):
-            self.advance()
-            self.advance()
-            self.advance()
-            return self.gfx("running", [], tok)
-        if word(tok, "mouse"):
-            nxt = self.peek()
-            if word(nxt, "x") or word(nxt, "y"):
-                self.advance()
-                self.advance()
-                return self.gfx("mouse_" + nxt.value, [], tok)
-            if word(nxt, "is") and word(self.peek(2), "down"):
-                self.advance()
-                self.advance()
-                self.advance()
-                return self.gfx("mouse_down", [], tok)
-        if word(tok, "key") and self.peek().kind in ("TEXT", "NAME") and word(self.peek(2), "is") \
-                and word(self.peek(3), "pressed"):
-            self.advance()
-            arg = self.advance()
-            self.advance()
-            self.advance()
-            key = N.Str(arg.value, line=arg.line, col=arg.col) if arg.kind == "TEXT" \
-                else N.Var(arg.value, line=arg.line, col=arg.col)
-            return self.gfx("pressed", [key], tok)
+        question = self.try_question()
+        if question is not None:
+            return question
         if tok.kind == "NAME":
             self.advance()
             if tok.value == "ask" and self.cur.kind == "TEXT":
@@ -638,8 +580,6 @@ class Parser:
         self.error(tok, f"I expected a value here but found {describe(tok)}.")
 
     def parse_call(self, name_tok):
-        if name_tok.value in REMOVED_CALLS:
-            self.error(name_tok, f"'{name_tok.value}(...)' is not used any more.", REMOVED_CALLS[name_tok.value])
         self.expect_sym("(")
         args, named = [], None
         if not self.cur.is_sym(")"):

@@ -1,4 +1,6 @@
 note: Windows are hidden in the tests (PLAIN_HEADLESS), so this only checks the logic.
+import window
+
 open window "Test" with width 320 and height 200
 use color 255, 0, 0
 clear window

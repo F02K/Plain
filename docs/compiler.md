@@ -1,59 +1,50 @@
-# How the compiler works
+# How Plain works
 
 ```
-source -> lexer -> parser -> code generator -> NASM assembly -> nasm -> gcc (link) -> executable
+source -> lexer -> parser -> checker -> Python writer -> a standalone .py file
+                      ^
+                      +-- modules/NAME/NAME.plain  (the sentences of `import NAME`)
 ```
+
+Plain is Python, made simpler: a Plain program is checked, translated to a normal Python file and run by Python.
+It has its own character (`let` / `set` / `be`, `end`, English sentences), but everything underneath is Python,
+so it runs wherever Python runs.
 
 | File | Job |
 | --- | --- |
 | `plain/lexer.py` | text -> tokens |
 | `plain/parser.py`, `plain/nodes.py` | tokens -> syntax tree |
+| `plain/modules.py` | reads `modules/NAME/NAME.plain`: the sentences, types and colors of a module |
 | `plain/typesys.py` | the types |
-| `plain/codegen.py` | type checking and assembly generation |
-| `plain/runtime_asm.py` | the small assembly runtime (text, lists, errors) |
-| `plain/pygen.py`, `plain/pyruntime.py` | the Python backend and its helper code |
-| `plain/toolchain.py` | runs `nasm` and the linker |
+| `plain/checker.py` | finds mistakes (types, unknown names, wrong number of values) before the program runs |
+| `plain/pygen.py`, `plain/pyruntime.py` | writes the Python program and the helper code that goes into every program |
+| `plain/toolchain.py` | check + translate in one call |
 | `plain/cli.py` | the `plain` command |
 | `plain/errors.py` | friendly error messages |
+| `modules/` | modules such as `window` (see [Modules](modules.md)) |
 
-## Backends
+## The checker
 
-```
-                              +--> codegen.py -> NASM -> executable   (assembly)
-source -> lexer -> parser ----+
-                              +--> pygen.py   -> standalone .py       (python)
-```
+Plain has no type annotations, so the checker works out the types itself. An action is checked once for each
+combination of argument types it is called with (like a template). A program that passes the checker cannot
+mix up numbers, text and lists, and Python never sees a program with such a mistake.
 
-The Python backend runs the assembly code generator first, only to type check, so
-both backends accept and reject the same programs and show the same error messages.
-Python uses its own dynamic types at run time; numbers are always floats, and
-the helpers in `pyruntime.py` reproduce the assembly number formatting and error
-messages. The test-suite runs every program on both backends.
+Python uses its own types at run time; numbers are always floats, and the helpers in `pyruntime.py` print them the
+Plain way and turn run-time problems (division by zero, a list position that does not exist, ...) into friendly
+messages with the line number.
 
-## Design (assembly backend)
+## The IDE
 
-- Every value is one 64-bit slot: numbers are doubles, booleans 0/1, text a pointer to a
-  zero-terminated string, a thing a pointer to its fields, a list a pointer to `[size, capacity, data]`.
-- Types are inferred. Actions are compiled once per combination of argument types, so
-  there is no run-time type information.
-- `try` is implemented with a small stack of recovery points (stack pointer, frame
-  pointer, catch address) - no `setjmp`, so Windows and Linux behave the same.
-- Memory is never freed (no garbage collector). Fine for lessons and small programs.
-- The C library is used only for operating-system services (printing, reading a line, memory).
-- Windows x64 and Linux x64 (System V) differ only in the register names used for
-  runtime calls (see the macros `A1`..`A4`) and a few call details.
+The IDE (`ide/`) runs the translation with two extras that are switched on only when you ask for them:
 
-## Status
-
-- Linux x64: built and tested in CI.
-- Windows x64: built with `nasm -f win64` and linked with MinGW-w64; the full test-suite passes in CI on `windows-latest`.
+- *Live values* and *Value list*: `compile_to_python(source, watch=True)` adds small hooks after assignments,
+  conditions, calls and `return`. A background thread writes the latest values to a file a few times per second
+  and the IDE shows them behind the code.
+- Clicking a name explains it (`ide/symbols.py`), working on the text only.
 
 ## Roadmap
 
-1. Windows and drawing are done (Win32 in the assembly backend, tkinter in the Python backend; see
-   `plain/runtime_gfx.py`). Still open: the assembly backend on Linux (X11) and sprites/sound.
-2. Standard library: `Math`, `String`, `Window`, `Input`, `Draw`.
-3. Text, math and list helpers are done (see `plain/library.py` and the runtime).
-4. Sample project: a Pong-level 2D game.
-5. Optimizations (keep values in registers, constant folding).
-6. Open design questions: explicit program entry point, multiple return values, inheritance.
+1. More modules: `sound`, `random` helpers, `file`, `web`. A module is a small folder; see [Modules](modules.md).
+2. Sprites and images for the `window` module.
+3. A package manager-like way to share modules between classes.
+4. Open design questions: explicit program entry point, multiple return values, inheritance.

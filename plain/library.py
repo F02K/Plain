@@ -1,4 +1,4 @@
-"""Names and types of the built-in helpers, shared by both backends.
+"""Names and types of the built-in helpers, used by the checker and the Python writer.
 
 Two forms exist, so Plain code keeps reading like English:
   * 'name of value'   one value:   length of name, round of 2.5
@@ -36,38 +36,3 @@ EXAMPLES = {
 
 # Calls that can fail at run time get the line number as an extra last argument.
 NEEDS_LINE = ("random", "part")
-
-# Windows and drawing. All coordinates are numbers, (0, 0) is the top left corner of the window.
-GFX = {
-    "window": ((T.TEXT, T.NUMBER, T.NUMBER), T.NOTHING),
-    "color": ((T.NUMBER, T.NUMBER, T.NUMBER), T.NOTHING),
-    "clear": ((), T.NOTHING),
-    "rectangle": ((T.NUMBER, T.NUMBER, T.NUMBER, T.NUMBER), T.NOTHING),
-    "circle": ((T.NUMBER, T.NUMBER, T.NUMBER), T.NOTHING),
-    "line": ((T.NUMBER, T.NUMBER, T.NUMBER, T.NUMBER), T.NOTHING),
-    "write": ((T.TEXT, T.NUMBER, T.NUMBER), T.NOTHING),
-    "show": ((), T.NOTHING),
-    "close_window": ((), T.NOTHING),
-    "running": ((), T.BOOLEAN),
-    "pressed": ((T.TEXT,), T.BOOLEAN),
-    "mouse_x": ((), T.NUMBER),
-    "mouse_y": ((), T.NUMBER),
-    "mouse_down": ((), T.BOOLEAN),
-}
-CALLS.update(GFX)
-EXAMPLES.update({
-    "window": 'open window "My game" with width 640 and height 480',
-    "color": "use color orange",
-    "clear": "clear window with color black",
-    "rectangle": "draw rectangle at 10, 10 size 100 by 50",
-    "circle": "draw circle at 200, 150 radius 30",
-    "line": "draw line from 0, 0 to 100, 100",
-    "write": 'draw text "Score: 3" at 10, 10',
-    "show": "show window",
-    "close_window": "close window",
-    "running": "while window is open do",
-    "pressed": 'if key "left" is pressed then',
-    "mouse_x": "mouse x",
-    "mouse_y": "mouse y",
-    "mouse_down": "if mouse is down then",
-})

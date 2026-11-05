@@ -1,7 +1,7 @@
 [project]
 name = "plain-lang"
 version = "0.1.0"
-description = "Plain: a beginner friendly programming language that compiles to native code."
+description = "Plain: a beginner friendly programming language: Python, but simpler."
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 readme = "README.md"
@@ -10,4 +10,7 @@ readme = "README.md"
 plain = "plain.cli:main"
 
 [tool.setuptools]
-packages = ["plain"]
+packages = ["plain", "modules", "modules.window"]
+
+[tool.setuptools.package-data]
+"modules.window" = ["window.plain", "window.py"]

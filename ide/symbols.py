@@ -57,6 +57,7 @@ HELP = {
     "upper": "upper of text  makes the letters big.", "lower": "lower of text  makes the letters small.",
     "round": "round of 2.5  rounds to a whole number.", "abs": "abs of -3  removes the minus sign.",
     "sqrt": "sqrt of 9  is the square root.",
+    "import": "import window  adds the sentences of a module (here: windows and drawing). It goes at the top of the program.",
     "open": "open window \"Title\" with width 640 and height 480  opens the program window.",
     "close": "close window  closes the program window.",
     "show": "show window  shows everything that was drawn and waits for the next frame.",

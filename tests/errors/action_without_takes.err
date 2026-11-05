@@ -1,0 +1,2 @@
+An action lists the values it needs after 'takes'.
+Write: action name takes(parameter1, parameter2) do

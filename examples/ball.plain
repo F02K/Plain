@@ -1,6 +1,8 @@
 note: A small ball game. Move the paddle with the left and right arrow keys.
 note: Close the window to stop.
 
+import window
+
 define Ball as
     x as number
     y as number

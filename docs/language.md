@@ -2,7 +2,7 @@
 
 A complete description of Plain. New to the language? Start with [Getting started](getting-started.md).
 
-**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Built-in helpers - Windows and drawing - Errors - Reserved words
+**Contents:** Types - Comments - Variables - Operators - Control flow - Actions - Things - Lists - Output and input - Built-in helpers - Modules - Errors - Reserved words
 
 ## Types
 
@@ -191,70 +191,28 @@ Helpers with more values use brackets:
 | `part(text, start, count)` | `count` characters from position `start` (first is 0) | `part("Hello", 1, 3)` is `ell` |
 | `contains(text, piece)` | `true` if `piece` is inside `text` (also `contains(list, value)`) | `contains(name, "an")` |
 
-These names (and the window helpers below) cannot be used for your own actions or types. A thing may still have a field
+These names cannot be used for your own actions or types. A thing may still have a field
 called `length` and so on: `length of box` reads the field when `box` is a thing.
 
-## Windows and drawing
+## Modules
 
-A program can open a window and draw in it. Everything is written as a short sentence. Coordinates are numbers;
-`(0, 0)` is the top left corner, `x` grows to the right and `y` grows downwards.
+Extras that are not part of the language itself come as modules. A program asks for them with `import` in its
+first lines:
 
 ```
+import window
+
 open window "My game" with width 640 and height 480
-let x be 100
 while window is open do
-    if key "left" is pressed then
-        set x to x - 4
-    end
-    clear window with color black    note: start every picture with a clear window
+    clear window with color black
     use color orange
-    draw circle at x, 200 radius 20
-    draw text "x = " + x at 10, 10
-    show window                      note: show the picture, then wait for the next frame
+    draw circle at 320, 240 radius 30
+    show window
 end
 ```
 
-| Sentence | What it does |
-| --- | --- |
-| `open window "title" with width 640 and height 480` | opens the window (only one at a time) |
-| `close window` | closes the window from the program |
-| `show window` | shows what was drawn and waits for the next frame (about 60 per second) |
-| `clear window` | fills the whole window with the current colour |
-| `clear window with color black` | the same, with a colour |
-| `use color orange` | sets the colour for everything drawn next |
-| `draw rectangle at x, y size 100 by 50` | a filled rectangle with its top left corner at `x, y` |
-| `draw circle at x, y radius 20` | a filled circle around `x, y` |
-| `draw line from x1, y1 to x2, y2` | a line |
-| `draw text "Score" at x, y` | text with its top left corner at `x, y` |
-| `window is open` | `true` while the window is open (`false` after the user closed it) |
-| `key "left" is pressed` | `true` while the key is held down; keys: `"left"`, `"right"`, `"up"`, `"down"`, `"space"`, `"enter"`, `"escape"`, `"shift"`, `"ctrl"`, `"tab"`, `"backspace"`, `"a"` to `"z"`, `"0"` to `"9"`. The key can also be a text variable. |
-| `mouse x` / `mouse y` | where the mouse is inside the window |
-| `mouse is down` | `true` while the left mouse button is held down |
-
-### Colours
-
-- Named colours: `red`, `green`, `blue`, `yellow`, `orange`, `purple`, `pink`, `brown`, `gray`, `white`, `black`.
-  `use color orange`, `clear window with color black`.
-- Your own colours are things of the built-in type `Color` with the fields `red`, `green` and `blue` (0 to 255):
-
-  ```
-  let sky be Color(red: 20, green: 24, blue: 40)
-  use color sky
-  set red of sky to 100
-  ```
-- Three numbers work as well: `use color 255, 128, 0`.
-
-Things to know:
-
-- Drawing happens in the background; nothing appears until `show window`. Use `clear window` at the start of each picture,
-  otherwise old drawings stay.
-- Events (closing the window, keys) are handled inside `show window`, so call it in every round of your loop.
-- When the program ends while the window is open, the window stays until it is closed.
-- Drawing before `open window` is an error: `Open a window first`.
-- Windows work with the Python backend (tkinter) and with the Assembly backend on Windows (Win32).
-  On Linux the Assembly backend does not support windows yet; use `--backend python` there.
-- Set the environment variable `PLAIN_HEADLESS=1` to keep windows hidden (used by the tests).
-- See [`examples/ball.plain`](../examples/ball.plain).
+The only module so far is `window` (windows, drawing, keys and mouse). Its sentences, the colors and how to write
+your own module are in [Modules](modules.md).
 
 ## Errors
 
@@ -272,7 +230,7 @@ Without `try`, a runtime error stops the program with the line number and a reas
 ## Reserved words
 
 `let be set to say input if then else end repeat times while do for each in stop skip
-action return define as list of at add remove from sort try catch and or not mod true
+action return define as list of at add remove from sort try catch import and or not mod true
 false nothing` (`note:` starts a comment).
 
 ## Differences from the first draft of the specification

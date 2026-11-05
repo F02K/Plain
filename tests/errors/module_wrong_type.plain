@@ -1,0 +1,2 @@
+import window
+open window 5 with width 100 and height 100

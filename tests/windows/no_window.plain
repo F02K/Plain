@@ -1,3 +1,5 @@
+import window
+
 try
     draw rectangle at 0, 0 size 10 by 10
 catch error then

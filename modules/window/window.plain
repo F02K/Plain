@@ -1,0 +1,57 @@
+note: The window module: open a window, draw in it, read the keys and the mouse.
+note: A program uses it with the line  import window  at the top.
+note:
+note: This file says what the module offers. The Plain compiler reads it, so the sentences below
+note: are exactly the sentences you can write. window.py is the Python code that does the work.
+note:
+note: Each line has the form:   command|question  <sentence>  [gives <type>]  =  <function in window.py>
+note: Words are written as they are. <name: type = example> is a value you fill in. The types are text,
+note: number, boolean and color (a color name, a Color value, or three numbers).
+
+module window
+python window.py
+
+note: A color you make yourself:  let sky be Color(red: 20, green: 24, blue: 40)
+type Color
+    red as number
+    green as number
+    blue as number
+end
+
+note: The color names. Red, green and blue go from 0 to 255.
+colors
+    red 230 50 50
+    green 50 180 70
+    blue 50 100 230
+    yellow 250 220 50
+    orange 255 150 30
+    purple 150 70 200
+    pink 255 130 180
+    brown 140 90 50
+    gray 128 128 128
+    white 255 255 255
+    black 0 0 0
+end
+
+note: Opening and closing
+command open window <title: text = "My game"> with width <width: number = 640> and height <height: number = 480> = window_open
+command close window = window_close
+command show window = window_show
+question window is open gives boolean = window_is_open
+
+note: Colors
+command use color <color: color = orange> = window_color
+command clear window = window_clear
+command clear window with color <color: color = black> = window_clear_with
+
+note: Drawing. (0, 0) is the top left corner, x grows to the right and y grows downwards.
+command draw rectangle at <x: number = 10>, <y: number = 10> size <width: number = 100> by <height: number = 50> = window_rectangle
+command draw circle at <x: number = 200>, <y: number = 150> radius <radius: number = 30> = window_circle
+command draw line from <x1: number = 0>, <y1: number = 0> to <x2: number = 100>, <y2: number = 100> = window_line
+command draw text <text: text = "Score: 3"> at <x: number = 10>, <y: number = 10> = window_text
+
+note: Keys and mouse
+question key <name: text = "left"> is pressed gives boolean = window_key_pressed
+question mouse x gives number = window_mouse_x
+question mouse y gives number = window_mouse_y
+question mouse is down gives boolean = window_mouse_down

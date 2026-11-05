@@ -21,7 +21,7 @@ A small editor for Plain, made for classrooms: one window, one Run button.
   `takes ball = ..., position = 200`) and the numbers behind `draw` commands. The code itself is not changed;
   a value flashes when it changes. Editing the code removes the values.
 - **Value list** opens a list of all variables on the right; click a row to find it in the code.
-  Both work with the Python backend only, report a few times per second and are off by default,
+  Both report a few times per second and are off by default,
   so they hardly slow the program down
 - Errors show the faulty line and mark it red in the editor
 - **Examples** menu with the programs from `examples/`, **Help > Quick reference** (F1) as a cheat sheet
@@ -36,14 +36,9 @@ a forced close the IDE offers to bring them back. Open the folder with *Help > O
 
 ## Windows
 
-Programs can open windows (`open window "Title" with width 640 and height 480`, see the Examples menu > ball). The program's
+Programs can open windows with the `window` module (`import window`, then for example
+`open window "Title" with width 640 and height 480`; see the Examples menu > ball). The program's
 window opens next to the IDE; *Stop* or closing it ends the program.
-
-## Run with Python or Assembly
-
-Programs run with the Python backend by default, so a school computer only needs Python
-(or the packaged program below). *Run with: Assembly* builds a real program and needs NASM and gcc
-(see the main README); the IDE finds them in their usual folders even when `PATH` is out of date.
 
 ## Start
 
