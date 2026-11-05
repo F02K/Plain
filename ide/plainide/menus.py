@@ -32,6 +32,18 @@ def build_menu(app):
     file_menu.add_command(label="Exit", command=app.quit)
     menu.add_cascade(label="File", menu=file_menu)
 
+    edit_menu = tk.Menu(menu, tearoff=False)
+    edit_menu.add_command(label="Undo", accelerator="Ctrl+Z", command=app.undo)
+    edit_menu.add_command(label="Redo", accelerator="Ctrl+Y", command=lambda: app.undo(redo=True))
+    edit_menu.add_separator()
+    edit_menu.add_command(label="Find...", accelerator="Ctrl+F", command=app.find)
+    edit_menu.add_command(label="Replace...", accelerator="Ctrl+H", command=lambda: app.find(replace=True))
+    edit_menu.add_command(label="Find next", accelerator="F3", command=lambda: app.find_step(1))
+    edit_menu.add_command(label="Find previous", accelerator="Shift+F3", command=lambda: app.find_step(-1))
+    edit_menu.add_separator()
+    edit_menu.add_command(label="Go to line...", accelerator="Ctrl+G", command=app.go_to_line)
+    menu.add_cascade(label="Edit", menu=edit_menu)
+
     examples_menu = tk.Menu(menu, tearoff=False)
     examples = os.path.join(ROOT, "examples")
     if os.path.isdir(examples):
@@ -61,7 +73,7 @@ def build_menu(app):
     view_menu.add_command(label="Bigger text", accelerator="Ctrl++", command=lambda: app.zoom(1))
     view_menu.add_command(label="Smaller text", accelerator="Ctrl+-", command=lambda: app.zoom(-1))
     view_menu.add_separator()
-    app.theme_var = tk.StringVar(value=app.theme_name)
+    app.theme_var = tk.StringVar(master=app.root, value=app.theme_name)
     for name in THEMES:
         view_menu.add_radiobutton(label=f"{name} theme", variable=app.theme_var, value=name,
                                   command=lambda n=name: app.apply_theme(n))

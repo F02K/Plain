@@ -4,7 +4,7 @@ import os
 import shutil
 import tempfile
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 from . import TITLE, settings
 from .activitybar import ActivityBar
@@ -41,8 +41,8 @@ class App:
         self.tmp = tempfile.mkdtemp(prefix="plain_ide_")
         self.view = None                                   # "explorer", "values" or None (sidebar hidden)
         self.quick = None
-        self.watch_var = tk.BooleanVar(value=False)        # the list of values (the Values view)
-        self.live_var = tk.BooleanVar(value=False)         # the values behind the code
+        self.watch_var = tk.BooleanVar(master=root, value=False)        # the list of values (the Values view)
+        self.live_var = tk.BooleanVar(master=root, value=False)         # the values behind the code
         self.font, self.small_font, self.ui_bold, self.ui_font = make_fonts(root)
         apply_styles(root, self.theme, self.ui_font)
         self.icons = Icons(self.theme, self.root)
@@ -60,6 +60,7 @@ class App:
         root.config(menu=build_menu(self))
         self.bind_keys()
         self.session.install_crash_handler()
+        self.status.on_problem_click = self.go_to_line
 
         self.session.restore()
         for path in paths:
@@ -124,6 +125,9 @@ class App:
             ("<Control-s>", d.save), ("<Control-S>", d.save_as), ("<Control-w>", d.close),
             ("<Control-Tab>", d.next), ("<Control-Shift-Tab>", lambda: d.next(-1)),
             ("<Control-p>", self.quick_open), ("<Control-b>", self.toggle_sidebar),
+            ("<Control-f>", self.find), ("<Control-h>", lambda: self.find(replace=True)),
+            ("<F3>", lambda: self.find_step(1)), ("<Shift-F3>", lambda: self.find_step(-1)),
+            ("<Control-g>", self.go_to_line),
             ("<Control-E>", self.focus_explorer),
             ("<Control-plus>", lambda: self.zoom(1)), ("<Control-equal>", lambda: self.zoom(1)),
             ("<Control-minus>", lambda: self.zoom(-1)),
@@ -176,6 +180,42 @@ class App:
         self.explorer.tree.focus_set()
         if not self.explorer.tree.selection() and self.explorer.tree.get_children():
             self.explorer.tree.selection_set(self.explorer.tree.get_children()[0])
+
+    # ---- the Edit menu: find, replace, go to line ----------------------------------------
+
+    def find(self, replace=False):
+        doc = self.documents.current()
+        if doc is not None:
+            doc.findbar.show(replace=replace)
+
+    def find_step(self, delta):
+        doc = self.documents.current()
+        if doc is not None:
+            doc.findbar.step(delta)
+
+    def go_to_line(self, line=None):
+        """Jump to a line (Ctrl+G asks for the number)."""
+        doc = self.documents.current()
+        if doc is None:
+            return
+        if line is None:
+            last = int(doc.text.index("end-1c").split(".")[0])
+            line = simpledialog.askinteger("Go to line", f"Line number (1 to {last}):", parent=self.root,
+                                           minvalue=1, maxvalue=last)
+            if line is None:
+                return
+        doc.text.mark_set("insert", f"{line}.0")
+        doc.text.see("insert")
+        doc.text.focus_set()
+        doc.update_cursor()
+
+    def undo(self, redo=False):
+        doc = self.documents.current()
+        if doc is not None:
+            try:
+                (doc.text.edit_redo if redo else doc.text.edit_undo)()
+            except tk.TclError:                 # nothing to undo
+                pass
 
     def quick_open(self):
         if self.quick is not None:

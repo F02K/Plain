@@ -20,6 +20,7 @@ DARK = {
     "status_bg": "#007acc", "status_fg": "#ffffff", "busy_bg": "#cc6633",
     "activity_bg": "#333333", "activity_fg": "#858585", "activity_active": "#ffffff",
     "tabstrip_bg": "#252526", "tab_hover_bg": "#2a2d2e",
+    "find_match": "#5a4520", "find_current": "#9a5a00",
 }
 
 LIGHT = {
@@ -37,6 +38,7 @@ LIGHT = {
     "status_bg": "#007acc", "status_fg": "#ffffff", "busy_bg": "#cc6633",
     "activity_bg": "#2c2c2c", "activity_fg": "#858585", "activity_active": "#ffffff",
     "tabstrip_bg": "#f3f3f3", "tab_hover_bg": "#e4e4e4",
+    "find_match": "#ffe7a3", "find_current": "#f5b942",
 }
 
 THEMES = {"Dark": DARK, "Light": LIGHT}
